@@ -1,5 +1,6 @@
+const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
+
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     const contentEl = document.getElementById('profile-content');
     
@@ -18,11 +19,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const headers = { 'Authorization': `Bearer ${token}` };
         
         try {
-            const ordersRes = await fetch(`${API_BASE}/api/orders/my`, { headers });
+            const ordersRes = await fetch(`${API_BASE}/orders/my`, { headers });
             if (ordersRes.ok) { const orders = await ordersRes.json(); ordersCount = orders.length; }
-            const reviewsRes = await fetch(`${API_BASE}/api/reviews/my`, { headers });
+            const reviewsRes = await fetch(`${API_BASE}/reviews/my`, { headers });
             if (reviewsRes.ok) { const reviews = await reviewsRes.json(); reviewsCount = reviews.length; }
-            const favsRes = await fetch(`${API_BASE}/api/favorites`, { headers });
+            const favsRes = await fetch(`${API_BASE}/favorites`, { headers });
             if (favsRes.ok) { const favs = await favsRes.json(); favoritesCount = favs.length; }
         } catch(e) { console.error('Stats error:', e); }
         
@@ -79,8 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             if (tab === 'orders') {
-                const res = await fetch(`${API_BASE}/api/orders/my`, { headers });
-                if (!res.ok) throw new Error('Ошибка загрузки');
+                const res = await fetch(`${API_BASE}/orders/my`, { headers });
+                if (!res.ok) throw new Error(`Ошибка ${res.status}`);
                 const orders = await res.json();
                 if (!orders.length) { c.innerHTML = '<div class="card"><p style="text-align:center;color:#888;">У вас пока нет заказов</p></div>'; return; }
                 c.innerHTML = orders.map(order => `
@@ -100,15 +101,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 `).join('');
             }
             else if (tab === 'reviews') {
-                const res = await fetch(`${API_BASE}/api/reviews/my`, { headers });
-                if (!res.ok) throw new Error('Ошибка загрузки');
+                const res = await fetch(`${API_BASE}/reviews/my`, { headers });
+                if (!res.ok) throw new Error(`Ошибка ${res.status}`);
                 const reviews = await res.json();
                 if (!reviews.length) { c.innerHTML = '<div class="card"><p style="text-align:center;color:#888;">Вы ещё не оставили отзывы</p></div>'; return; }
                 c.innerHTML = reviews.map(r => `<div class="card"><p style="color:#666; margin-bottom:8px;">${new Date(r.createdAt).toLocaleDateString('ru-RU')}</p><p>${escapeHtml(r.text)}</p></div>`).join('');
             }
             else if (tab === 'favs') {
-                const res = await fetch(`${API_BASE}/api/favorites`, { headers });
-                if (!res.ok) throw new Error('Ошибка загрузки');
+                const res = await fetch(`${API_BASE}/favorites`, { headers });
+                if (!res.ok) throw new Error(`Ошибка ${res.status}`);
                 const favs = await res.json();
                 if (!favs.length) { c.innerHTML = '<div class="card"><p style="text-align:center;color:#888;">В избранном пока ничего нет</p></div>'; return; }
                 c.innerHTML = favs.map(f => `
@@ -142,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const phone = document.getElementById('settings-phone').value.trim();
                     if (!newName) { alert('Введите имя'); return; }
                     try {
-                        const response = await fetch(`${API_BASE}/api/users/profile`, {
+                        const response = await fetch(`${API_BASE}/users/profile`, {
                             method: 'PUT',
                             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ fullName: newName, phone: phone })
@@ -164,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (newPassword !== confirmPassword) { alert('Новый пароль и подтверждение не совпадают'); return; }
                     if (newPassword.length < 6) { alert('Пароль должен содержать не менее 6 символов'); return; }
                     try {
-                        const response = await fetch(`${API_BASE}/api/auth/change-password`, {
+                        const response = await fetch(`${API_BASE}/auth/change-password`, {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ currentPassword: currentPassword, newPassword: newPassword })
