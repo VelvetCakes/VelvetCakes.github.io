@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Velvet — авторские торты и чизкейки на заказ в Екатеринбурге. Ручная работа, свежие ингредиенты, индивидуальный подход." />
+<title>Velvet — десерты с душой</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="header-content">
+      <div class="logo-wrapper">
+        <img src="image/image 14.png" alt="Velvet" loading="lazy">
+        <span class="logo-text">Velvet</span>
+      </div>
+      
+      <div style="position: relative; flex: 1; max-width: 400px;">
+  <input type="text" id="search-input" class="header-search" placeholder="Найти торт..." style="width: 100%;">
+</div>
+      
+      <div class="header-right">
+        <div class="header-icons">
+  <button id="notifications-btn" aria-label="Уведомления">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+    <span id="notifications-badge"></span>
+  </button>
+  <button id="open-basket" aria-label="Корзина">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+    </svg>
+    <span id="basket-counter"></span>
+  </button>
+</div>
+        
+        <div class="burger-menu">
+          <button class="burger-btn" aria-label="Меню">☰</button>
+          <div class="burger-dropdown">
+  <button id="profile-link-btn" style="display:none;">Личный кабинет</button>
+  <button id="admin-panel-btn" style="display:none;">Админка</button>
+  <button id="orders-btn" style="display:none;">Заказы</button>
+  <hr style="margin: 6px 0; border:0; border-top:1px solid #eee;">
+  <button id="logout-btn" style="display:none; color:#ff4757;">Выйти</button>
+  <button id="auth-btn" style="display:none;">Войти</button> <!-- FIX: скрытая кнопка входа -->
+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+<section class="hero">
+<div class="container">
+<div class="hero-content">
+<div class="hero-text">
+<h1>Velvet это...</h1>
+<p>Торты и трайфлы на заказ — нежные, сочные, красивые и по‑настоящему вкусные.<br>Без шаблонов. Без конвейера. Только ручная работа, свежие ингредиенты и забота о каждом заказе — как для близкого человека.</p>
+<a href="#catalog" class="btn">Сделай заказ</a>
+</div>
+<div class="hero-image">
+<img src="image/image 13.png" alt="Фото десерта от Velvet" loading="lazy">
+</div>
+</div>
+</div>
+</section>
+<section class="constructor">
+<div class="container">
+<h2 class="section-title">Конструктор</h2>
+<div class="constructor-wrapper">
+<div class="form-group">
+<label for="filling-0">Начинка</label>
+<div class="form-row">
+<select id="filling-0">
+<!-- Будет заполнено из localStorage -->
+</select>
+<button type="button" class="add-option-btn" id="add-filling-btn" data-type="filling" aria-label="Добавить ещё начинку">
+<svg width="18" height="18" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 7.5L15 22.5" stroke="currentColor" stroke-linecap="square" stroke-linejoin="round"/>
+<path d="M22.5 15L7.5 15" stroke="currentColor" stroke-linecap="square" stroke-linejoin="round"/>
+</svg>
+</button>
+</div>
+</div>
+<div id="filling-container"></div>
+<div class="form-group">
+<label for="cake-base-0">Бисквит</label>
+<div class="form-row">
+<select id="cake-base-0">
+<!-- Будет заполнено из localStorage -->
+</select>
+<button type="button" class="add-option-btn" id="add-cake-base-btn" data-type="cake-base" aria-label="Добавить ещё бисквит">
+<svg width="18" height="18" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 7.5L15 22.5" stroke="currentColor" stroke-linecap="square" stroke-linejoin="round"/>
+<path d="M22.5 15L7.5 15" stroke="currentColor" stroke-linecap="square" stroke-linejoin="round"/>
+</svg>
+</button>
+</div>
+</div>
+<div id="cake-base-container"></div>
+<div class="design-notes">
+<label for="design-notes">Пожелания к дизайну</label>
+<textarea id="design-notes" rows="3" placeholder="Опишите, каким вы хотите видеть торт: цвета, надписи, фигурки и т.д."></textarea>
+</div>
+<div class="form-group">
+<label for="delivery-date">Дата получения</label>
+<div class="form-row">
+<input type="date" id="delivery-date" min="" required style="flex: 1; padding: 14px; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); font-size: 16px; font-family: 'Inter', sans-serif;">
+</div>
+</div>
+<div class="price-summary">
+<div class="price-item">
+<label for="weight">Вес (кг)</label>
+<input type="number" id="weight" min="0.5" step="0.1" value="1" placeholder="1.0">
+</div>
+<div class="price-item">
+<label for="total-price">Стоимость</label>
+<div id="total-price">от 950 ₽</div>
+</div>
+</div>
+<div class="constructor-actions">
+<button type="button" id="add-constructor-to-cart" class="btn">В корзину</button>
+</div>
+</div>
+</div>
+</section>
+<section class="catalog" id="catalog">
+<div class="container">
+<h2 class="section-title">Каталог</h2>
+<div class="catalog-filters">
+<label for="category-select">Категория:</label>
+<select id="category-select">
+<option value="cheesecakes">Чизкейки</option>
+<option value="cakes">Торты</option>
+<option value="other">Прочие десерты</option>
+</select>
+</div>
+<div class="cheesecakes-grid" id="catalog-grid"></div>
+</div>
+</section>
+<section class="reviews" id="reviews">
+<div class="container">
+<h2 class="section-title">Отзывы</h2>
+<div class="reviews-content">
+<div class="review-form">
+<h3>Оставьте свой отзыв</h3>
+<input type="text" id="review-name" class="review-input" placeholder="Ваше имя" aria-label="Ваше имя">
+<textarea id="review-text" class="review-input" rows="4" placeholder="Ваш отзыв" aria-label="Ваш отзыв"></textarea>
+<button type="button" id="submit-review" class="btn">Оставить отзыв</button>
+</div>
+<div class="review-scroll-container">
+<div class="review-list" id="reviews-list"></div>
+</div>
+</div>
+</div>
+</section>
+<section class="delivery" id="delivery">
+<div class="container">
+<h2 class="section-title">Доставка и оплата</h2>
+<div class="delivery-grid">
+<div class="info-card">
+<div class="icon">
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M27 12H23V8C23 6.9 22.1 6 21 6H5C3.9 6 3 6.9 3 8V22C3 23.1 3.9 24 5 24H9V26C9 27.1 9.9 28 11 28H21C22.1 28 23 27.1 23 26V24H27L31 18V12H27ZM5 8H21V12H5V8ZM21 24V26H11V24H21ZM27 18H23V14H27V18Z" fill="white"/>
+</svg>
+</div>
+<h3>Доставка</h3>
+<p>Бесплатная доставка от 1000 ₽.<br>Курьер-такси — по тарифу.</p>
+</div>
+<div class="info-card">
+<div class="icon">
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M16 2C12.13 2 9 5.13 9 9C9 12.5 12 15 16 19C20 15 23 12.5 23 9C23 5.13 19.87 2 16 2ZM16 14C14.34 14 13 12.66 13 11C13 9.34 14.34 8 16 8C17.66 8 19 9.34 19 11C19 12.66 17.66 14 16 14Z" fill="white"/>
+<path d="M26 24C26 21.24 24.21 19 21 19H11C7.79 19 6 21.24 6 24V26C6 27.1 6.9 28 8 28H24C25.1 28 26 27.1 26 26V24Z" fill="white"/>
+</svg>
+</div>
+<h3>Самовывоз</h3>
+<p>При заказе на самовывоз — скидка 15%.</p>
+</div>
+<div class="info-card">
+<div class="icon">
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="8" width="24" height="16" rx="2" fill="white"/>
+<path d="M8 12H10V14H8V12Z" fill="#872F35"/>
+<path d="M12 12H20V14H12V12Z" fill="#872F35"/>
+</svg>
+</div>
+<h3>Оплата</h3>
+<p>Наличными или картой — при получении.</p>
+</div>
+</div>
+</div>
+</section>
+<section class="contacts" id="contacts">
+<div class="container">
+<h2 class="section-title">Контакты</h2>
+<div class="contacts-grid">
+<div class="contact-info">
+<h3>Адрес</h3>
+<p>Екатеринбург, ул. Сыромолотова, 12</p>
+<h3>Телефон</h3>
+<p>+7 (963) 098-73-71</p>
+<h3>Часы работы</h3>
+<p>Пн–Сб: 11:00–20:00</p>
+<h3>Соц. сети</h3>
+<div class="social-icons">
+<a href="https://t.me/velvet_cakes" class="social-icon" aria-label="Telegram" target="_blank">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.364 8.583c.143.057.19.171.143.342l-1.286 5.229c-.095.342-.286.457-.571.285l-4.286-2.857-1.952 1.886c-.143.114-.286.057-.286-.171V9.536c0-.228.143-.342.286-.228l7.143 4.286c.19.114.286.057.143-.114l-.714-2.571c-.048-.171.048-.285.19-.228l1.714.686z"/>
+</svg>
+</a>
+<a href="https://wa.me/79630987371" class="social-icon" aria-label="WhatsApp" target="_blank">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-1.475-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.506-.173-.006-.371-.006-.57-.006-.199 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.218-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+</svg>
+</a>
+</div>
+</div>
+<div>
+<div class="map-container">
+<iframe src="https://yandex.ru/map-widget/v1/?ll=60.5857%2C56.8225&z=16&mode=search&text=%D0%A1%D1%8B%D1%80%D0%BE%D0%BC%D0%BE%D0%BB%D0%BE%D1%82%D0%BE%D0%B2%D0%B0%2C%2012%2C%20%D0%95%D0%BA%D0%B0%D1%82%D0%B5%D1%80%D0%B8%D0%BD%D0%B1%D1%83%D1%80%D0%B3" width="100%" height="280" frameborder="0" allowfullscreen title="Карта проезда к Velvet — Екатеринбург, ул. Сыромолотова, 12" loading="lazy"></iframe>
+</div>
+</div>
+</div>
+</div>
+</section>
+<footer>
+<div class="container">
+<nav class="footer-nav">
+<a href="#catalog">Каталог</a>
+<a href="#reviews">Отзывы</a>
+<a href="#delivery">Доставка</a>
+<a href="#contacts">Контакты</a>
+</nav>
+<div class="footer-logo">
+<img src="image/image 14.png" alt="Velvet — логотип кондитерской" loading="lazy">
+</div>
+<p>© 2026 Velvet. Все права защищены.</p>
+</div>
+</footer>
+<!-- Модальные окна -->
+<div id="orders-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="orders-title">
+<div class="modal-content">
+<button class="modal-close" aria-label="Закрыть"></button>
+<header class="modal-header">
+<h2 id="orders-title" class="modal-title">Заказы</h2>
+</header>
+<div class="modal-body">
+<div class="orders-list" id="orders-list">
+<p style="text-align: center; padding: 20px;">Нет заказов</p>
+</div>
+</div>
+</div>
+</div>
+<div id="admin-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+  <div class="modal-content" style="max-width: 800px;">
+    <button class="modal-close" aria-label="Закрыть"></button>
+    <header class="modal-header">
+      <h2 id="admin-title" class="modal-title">Управление каталогом</h2>
+    </header>
+    <div class="modal-body">
+      <div class="admin-form">
+        <h4>Добавить/редактировать товар</h4>
+        <input type="hidden" id="edit-product-id">
+        <input type="text" id="admin-product-name" placeholder="Название" required>
+        <textarea id="admin-product-desc" placeholder="Описание" rows="2" required></textarea>
+        <input type="number" id="admin-product-price" placeholder="Цена (₽)" min="0" required>
+        <input type="text" id="admin-product-weight" placeholder="Вес (например: 1 кг)" required>
+        <select id="admin-product-category" required>
+          <option value="cheesecakes">Чизкейки</option>
+          <option value="cakes">Торты</option>
+          <option value="other">Прочие десерты</option>
+        </select>
+        
+        <button type="button" id="select-image-btn" class="btn" style="background:#6c5ce7; margin:10px 0; padding:10px;">📁 Выбрать изображение</button>
+        <input type="file" id="admin-product-img-file" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;">
+        <div id="selected-image-preview" style="margin:10px 0; display:none;">
+          <img id="preview-img" style="max-width:200px; border-radius:8px;">
+          <button type="button" id="clear-image-btn" style="margin-left:10px; padding:5px 10px;">✖ Очистить</button>
+        </div>
+        <input type="hidden" id="admin-product-img-url">
+        
+        <button class="add-product-btn" id="add-product-btn">Добавить товар</button>
+        
+        <h4 style="margin-top: 24px;">Управление начинками</h4>
+        <div id="fillings-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-bottom: 10px;"></div>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="new-filling-name" placeholder="Название новой начинки" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+          <button type="button" id="admin-add-filling-btn" class="btn" style="padding:8px 16px;">+ Добавить</button>
+        </div>
+        
+        <h4 style="margin-top: 24px;">Управление бисквитами</h4>
+        <div id="cake-bases-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-bottom: 10px;"></div>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="new-cake-base-name" placeholder="Название нового бисквита" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+          <button type="button" id="admin-add-cake-base-btn" class="btn" style="padding:8px 16px;">+ Добавить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="basket-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="basket-title">
+<div class="modal-content">
+<button class="modal-close" aria-label="Закрыть корзину"></button>
+<header class="modal-header">
+<h2 id="basket-title" class="modal-title">Ваш заказ</h2>
+</header>
+<div class="modal-body">
+<div class="basket-items">
+<p id="basket-empty">Корзина пуста</p>
+</div>
+<footer class="basket-footer">
+<div>
+<span class="total-label">Итого:</span>
+<span class="total-value">0 ₽</span>
+</div>
+<button class="checkout-btn" id="checkout-btn">Оформить заказ</button>
+</footer>
+</div>
+</div>
+</div>
+<div id="auth-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+<div class="modal-content">
+<button class="modal-close" aria-label="Закрыть"></button>
+<header class="modal-header">
+<h2 id="auth-title" class="modal-title">Вход / Регистрация</h2>
+</header>
+<div class="auth-tabs">
+<button class="auth-tab active" data-tab="login">Вход</button>
+<button class="auth-tab" data-tab="register">Регистрация</button>
+</div>
+<div class="auth-form active" id="login-form">
+<input type="email" class="auth-input" id="login-email" placeholder="Email (manager@example.com → менеджер)" required>
+<input type="password" class="auth-input" id="login-password" placeholder="Пароль" required>
+<button class="btn" id="login-submit">Войти</button>
+</div>
+<div class="auth-form" id="register-form">
+<input type="text" class="auth-input" id="register-name" placeholder="Имя" required>
+<input type="email" class="auth-input" id="register-email" placeholder="Email" required>
+<input type="password" class="auth-input" id="register-password" placeholder="Пароль" required>
+<button class="btn" id="register-submit">Зарегистрироваться</button>
+</div>
+</div>
+</div>
+<div id="profile-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+<div class="modal-content">
+<button class="modal-close" aria-label="Закрыть"></button>
+<header class="modal-header">
+<h2 id="profile-title" class="modal-title">Личный кабинет</h2>
+</header>
+<div class="profile-info">
+<p><strong>Имя:</strong> <span id="profile-name">—</span></p>
+<p><strong>Email:</strong> <span id="profile-email">—</span></p>
+<p><strong>Роль:</strong> <span id="profile-role">—</span></p>
+<button class="btn" id="logout-btn">Выйти</button>
+</div>
+</div>
+</div>
+<div id="notifications-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="notifications-title">
+<div class="modal-content">
+<button class="modal-close" aria-label="Закрыть"></button>
+<header class="modal-header">
+<h2 id="notifications-title" class="modal-title">Уведомления</h2>
+<button id="clear-notifications-btn" class="btn" style="margin-top: 10px; font-size: 14px; padding: 6px 12px;">Очистить всё</button>
+</header>
+<div class="modal-body">
+<div class="notifications-list" id="notifications-list"></div>
+<div id="notification-form" class="notification-form" style="display:none; margin-top:20px; padding-top:20px; border-top:1px solid #eee;">
+<h4>Отправить уведомление клиенту</h4>
+<input type="email" id="notify-email" placeholder="Email клиента" required style="width:100%; padding:8px; margin:6px 0; border:1px solid #ddd; border-radius:4px;">
+<input type="text" id="notify-title" placeholder="Заголовок" required style="width:100%; padding:8px; margin:6px 0; border:1px solid #ddd; border-radius:4px;">
+<textarea id="notify-text" rows="3" placeholder="Текст уведомления" required style="width:100%; padding:8px; margin:6px 0; border:1px solid #ddd; border-radius:4px;"></textarea>
+<button class="btn" id="send-notification">Отправить</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Кнопка чата -->
+<div id="chat-button" class="chat-button" style="display: none;">
+    <button class="chat-toggle-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="chat-unread-badge" style="display: none;">0</span>
+    </button>
+</div>
+
+<!-- Модальное окно чата -->
+<div id="chat-modal" class="modal-overlay">
+    <div class="modal-content chat-modal-content">
+        <button class="modal-close" aria-label="Закрыть"></button>
+        <div class="modal-header">
+            <h2 class="modal-title">Чат с поддержкой</h2>
+        </div>
+        <div class="chat-container">
+            <div class="chat-sidebar" id="chat-sidebar" style="display: none;">
+                <h3>Чаты</h3>
+                <div id="chats-list"></div>
+            </div>
+            <div class="chat-main">
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" placeholder="Введите сообщение..." rows="2"></textarea>
+                    <button id="send-message-btn" class="btn">Отправить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно оформления заказа -->
+<div id="checkout-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="modal-close" aria-label="Закрыть"></button>
+        <div class="modal-header">
+            <h2 class="modal-title">Оформление заказа</h2>
+        </div>
+        <div class="modal-body">
+            <form id="checkout-form">
+                <div class="form-group">
+                    <label>Способ получения:</label>
+                    <select id="delivery-type" required>
+                        <option value="pickup">Самовывоз (скидка 15%)</option>
+                        <option value="delivery">Доставка (+250 ₽)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="address-group" style="display: none;">
+                    <label>Адрес доставки:</label>
+                    <input type="text" id="delivery-address" placeholder="Улица, дом, квартира">
+                    <small class="delivery-fee-note" style="color: #e85fb9; display: block; margin-top: 8px;">+250 ₽ к стоимости заказа</small>
+                </div>
+                <div class="form-group">
+                    <label>Способ оплаты:</label>
+                    <select id="payment-method" required>
+                        <option value="card">Картой при получении</option>
+                        <option value="cash">Наличными при получении</option>
+                        <option value="online">Онлайн-оплата</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Дата получения/доставки:</label>
+                    <input type="date" id="checkout-delivery-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Комментарий к заказу:</label>
+                    <textarea id="order-comments" rows="3" placeholder="Ваши пожелания..."></textarea>
+                </div>
+                <div class="price-summary" style="margin-top: 20px;">
+                    <div class="price-item">
+                        <label>Сумма заказа:</label>
+                        <div id="checkout-subtotal">0 ₽</div>
+                    </div>
+                    <div class="price-item" id="delivery-fee-item" style="display: none;">
+                        <label>Доставка:</label>
+                        <div id="checkout-delivery-fee">+250 ₽</div>
+                    </div>
+                    <div class="price-item">
+                        <label>Итого:</label>
+                        <div id="checkout-total" style="font-size: 28px; font-weight: 600;">0 ₽</div>
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">Подтвердить заказ</button>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Глобальные геометрические фигуры (статичные, видны на всём сайте) -->
+<div class="shape-3"></div>
+<div class="shape-4"></div>
+<div class="shape-5"></div>
+<div class="shape-6"></div>
+<div class="shape-7"></div>
+<script src="script.js"></script>
+</body>
+</html>
