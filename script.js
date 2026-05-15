@@ -520,7 +520,7 @@ async function sendMessage() {
   if (!message || !currentChatId) return;
   try {
     const token = getAuthToken();
-    const response = await fetch(`${API_BASE}}/chat/${currentChatId}/messages`, {
+    const response = await fetch(`${API_BASE}/chat/${currentChatId}/messages`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ message })
@@ -655,13 +655,13 @@ async function loadComponentsAdmin() {
   const token = getAuthToken();
   if (!token) return;
   try {
-    const fillingsRes = await fetch('${API_BASE}/components/fillings', { headers: { 'Authorization': `Bearer ${token}` } });
+    const fillingsRes = await fetch(`${API_BASE}/components/fillings`, { headers: { 'Authorization': `Bearer ${token}` } });
     const fillings = await fillingsRes.json();
     const fillingsList = document.getElementById('fillings-list');
     if (fillingsList) {
       fillingsList.innerHTML = fillings.map(f => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #eee;"><span>🍯 ${escapeHtml(f.name)}</span><button class="delete-component-btn" data-id="${f.id}" data-type="filling" style="background:#ff4757;color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;">×</button></div>`).join('');
     }
-    const basesRes = await fetch('${API_BASE}/components/cakeBases', { headers: { 'Authorization': `Bearer ${token}` } });
+    const basesRes = await fetch(`${API_BASE}/components/cakeBases`, { headers: { 'Authorization': `Bearer ${token}` } });
     const bases = await basesRes.json();
     const basesList = document.getElementById('cake-bases-list');
     if (basesList) {
