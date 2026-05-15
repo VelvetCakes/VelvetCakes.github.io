@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'http://localhost:5105';
+    const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     const contentEl = document.getElementById('profile-content');
     

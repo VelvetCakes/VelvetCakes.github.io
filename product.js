@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5105';
+const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
 const params = new URLSearchParams(location.search);
 const id = params.get('id');
 
@@ -11,7 +11,7 @@ async function loadProduct() {
   const container = document.getElementById('product-container');
   
   try {
-    const response = await fetch(`${API_BASE}/api/products/${id}`);
+    const response = await fetch(`${API_BASE}/products/${id}`);
     
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     

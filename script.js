@@ -40,7 +40,7 @@ async function uploadImage(file) {
   const fd = new FormData();
   fd.append('file', file);
   try {
-    const res = await fetch('http://localhost:5105/api/products/upload-image', {
+    const res = await fetch(`${API_BASE}/products/upload-image`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${getAuthToken()}` },
       body: fd
@@ -167,7 +167,7 @@ async function addToFavorites(productId, btnElement) {
   }
   
   try {
-    const response = await fetch('http://localhost:5105/api/favorites', {
+    const response = await fetch(`${API_BASE}/favorites`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(productId)
@@ -363,7 +363,7 @@ function setupSearch() {
     
     searchTimeout = setTimeout(async () => {
       try {
-        const res = await fetch(`http://localhost:5105/api/products/search?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`${API_BASE}/products/search?q=${encodeURIComponent(query)}`);
         if (!res.ok) throw new Error('Search failed');
         const products = await res.json();
         if (!products.length) return;
@@ -445,7 +445,7 @@ async function loadChats() {
   try {
     const token = getAuthToken();
     const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
-    const response = await fetch('http://localhost:5105/api/chat', { headers: { 'Authorization': `Bearer ${token}` } });
+    const response = await fetch(`${API_BASE}/chat`, { headers: { 'Authorization': `Bearer ${token}` } });
     const chats = await response.json();
     
     if (user.role === 'manager') {
@@ -466,7 +466,7 @@ async function loadChats() {
       if (chats.length > 0 && !currentChatId) selectChat(chats[0].id);
     } else {
       if (chats.length === 0) {
-        const createResponse = await fetch('http://localhost:5105/api/chat', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+        const createResponse = await fetch(`${API_BASE}/chat`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
         const newChat = await createResponse.json();
         currentChatId = newChat.id;
       } else {
@@ -490,7 +490,7 @@ async function selectChat(chatId) {
 async function loadMessages(chatId) {
   try {
     const token = getAuthToken();
-    const response = await fetch(`http://localhost:5105/api/chat/${chatId}/messages`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const response = await fetch(`${API_BASE}/chat/${chatId}/messages`, { headers: { 'Authorization': `Bearer ${token}` } });
     const messages = await response.json();
     const currentUser = JSON.parse(safeLocalStorage.getItem('user') || '{}');
     const currentUserRole = currentUser.role;
@@ -520,7 +520,7 @@ async function sendMessage() {
   if (!message || !currentChatId) return;
   try {
     const token = getAuthToken();
-    const response = await fetch(`http://localhost:5105/api/chat/${currentChatId}/messages`, {
+    const response = await fetch(`${API_BASE}}/chat/${currentChatId}/messages`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ message })
@@ -536,7 +536,7 @@ async function sendMessage() {
 async function markMessagesAsRead(chatId) {
   try {
     const token = getAuthToken();
-    await fetch(`http://localhost:5105/api/chat/${chatId}/read`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
+    await fetch(`${API_BASE}/chat/${chatId}/read`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
   } catch(e) { console.error('Mark read error:', e); }
 }
 
@@ -655,13 +655,13 @@ async function loadComponentsAdmin() {
   const token = getAuthToken();
   if (!token) return;
   try {
-    const fillingsRes = await fetch('http://localhost:5105/api/components/fillings', { headers: { 'Authorization': `Bearer ${token}` } });
+    const fillingsRes = await fetch('${API_BASE}/components/fillings', { headers: { 'Authorization': `Bearer ${token}` } });
     const fillings = await fillingsRes.json();
     const fillingsList = document.getElementById('fillings-list');
     if (fillingsList) {
       fillingsList.innerHTML = fillings.map(f => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #eee;"><span>🍯 ${escapeHtml(f.name)}</span><button class="delete-component-btn" data-id="${f.id}" data-type="filling" style="background:#ff4757;color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;">×</button></div>`).join('');
     }
-    const basesRes = await fetch('http://localhost:5105/api/components/cakeBases', { headers: { 'Authorization': `Bearer ${token}` } });
+    const basesRes = await fetch('${API_BASE}/components/cakeBases', { headers: { 'Authorization': `Bearer ${token}` } });
     const bases = await basesRes.json();
     const basesList = document.getElementById('cake-bases-list');
     if (basesList) {
@@ -674,7 +674,7 @@ async function loadComponentsAdmin() {
         const componentType = btn.dataset.type === 'filling' ? 'начинку' : 'бисквит';
         if (confirm(`Удалить ${componentType}?`)) {
           try {
-            const response = await fetch(`http://localhost:5105/api/components/${componentId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
+            const response = await fetch(`${API_BASE}/components/${componentId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
             if (!response.ok) throw new Error((await response.json()).message || 'Ошибка удаления');
             alert(`${componentType} удалена!`);
             loadComponentsAdmin();
