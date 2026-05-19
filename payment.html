@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата заказа - Velvet</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .payment-container {
+            max-width: 600px;
+            margin: 60px auto;
+            padding: 40px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .inn-info {
+            background: #f9f0ff;
+            padding: 20px;
+            border-radius: 16px;
+            margin: 20px 0;
+        }
+        .inn-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 2px;
+        }
+        .payment-status {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 16px;
+        }
+        .status-success {
+            background: #e6f7e6;
+            color: #4caf50;
+        }
+        .status-error {
+            background: #ffe6e6;
+            color: #ff4757;
+        }
+        .status-pending {
+            background: #fff3e6;
+            color: #ff9800;
+        }
+        .btn-pay {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 40px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        .btn-pay:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(232, 95, 185, 0.3);
+        }
+        .order-details {
+            text-align: left;
+            margin: 20px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 16px;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="container">
+        <div class="header-content">
+            <div class="logo-wrapper">
+                <span class="logo-text">Velvet</span>
+            </div>
+            <button onclick="window.location.href='index.html'" class="btn" style="background:#ccc">← На главную</button>
+        </div>
+    </div>
+</header>
+
+<main class="payment-container">
+    <h1>💳 Оплата заказа</h1>
+    
+    <div class="order-details" id="order-details">
+        <p><strong>Номер заказа:</strong> <span id="order-id">—</span></p>
+        <p><strong>Сумма к оплате:</strong> <span id="order-amount" style="font-size: 24px; font-weight: 700; color: var(--primary);">0 ₽</span></p>
+    </div>
+
+    <div class="inn-info">
+        <p style="margin-bottom: 8px;">💰 Платёж поступает самозанятому:</p>
+        <div class="inn-number">ИНН: 123456789012</div>
+        <p style="font-size: 12px; margin-top: 8px; color: #666;">Чек отправляется на email после оплаты</p>
+    </div>
+
+    <div id="payment-status" class="payment-status status-pending">
+        ⏳ Ожидание оплаты...
+    </div>
+
+    <button class="btn-pay" id="pay-button">💳 Оплатить через ЮKassa</button>
+    <button class="btn" onclick="window.location.href='profile.html'" style="margin-top: 16px; background: #ccc;">📦 Перейти к заказам</button>
+</main>
+
+<script>
+    const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('orderId');
+    const paymentId = urlParams.get('paymentId');
+    const status = urlParams.get('status');
+    
+    async function loadOrderInfo() {
+        if (!orderId) {
+            document.getElementById('order-id').textContent = 'Не указан';
+            return;
+        }
+        
+        document.getElementById('order-id').textContent = orderId;
+        
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${API_BASE}/orders/my`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const orders = await response.json();
+            const order = orders.find(o => o.id == orderId);
+            
+            if (order) {
+                document.getElementById('order-amount').textContent = `${order.totalAmount} ₽`;
+            }
+        } catch(e) {
+            console.error('Error loading order:', e);
+        }
+    }
+    
+    if (status === 'success') {
+        document.getElementById('payment-status').innerHTML = `
+            <div class="status-success">✅ Оплата успешно произведена!</div>
+        `;
+        document.getElementById('pay-button').style.display = 'none';
+    } else if (status === 'error') {
+        document.getElementById('payment-status').innerHTML = `
+            <div class="status-error">❌ Ошибка оплаты. Попробуйте снова или выберите другой способ оплаты.</div>
+        `;
+    }
+    
+    document.getElementById('pay-button').addEventListener('click', async () => {
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+            alert('Войдите в аккаунт для оплаты');
+            window.location.href = 'index.html?auth=login';
+            return;
+        }
+        
+        try {
+            document.getElementById('pay-button').disabled = true;
+            document.getElementById('pay-button').textContent = '⏳ Создание платежа...';
+            
+            const returnUrl = `${window.location.origin}/payment.html?orderId=${orderId}`;
+            
+            const response = await fetch(`${API_BASE}/orders/${orderId}/payment`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ returnUrl: returnUrl })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.paymentUrl) {
+                window.location.href = data.paymentUrl;
+            } else {
+                throw new Error(data.message || 'Ошибка создания платежа');
+            }
+        } catch(e) {
+            alert('Ошибка: ' + e.message);
+            document.getElementById('pay-button').disabled = false;
+            document.getElementById('pay-button').textContent = '💳 Оплатить через ЮKassa';
+        }
+    });
+    
+    loadOrderInfo();
+</script>
+</body>
+</html>

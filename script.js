@@ -1,4 +1,3 @@
-// ===== ГЛОБАЛЬНЫЕ УТИЛИТЫ =====
 const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
 
 const safeLocalStorage = {
@@ -591,8 +590,9 @@ async function processOrder() {
   let total = currentCartTotal;
   if (deliveryType === 'pickup') total = total * 0.85;
   else if (deliveryType === 'delivery') total = total + 250;
+  
   try {
-    await apiFetch('/orders', {
+    const response = await apiFetch('/orders', {
       method: 'POST',
       body: JSON.stringify({
         total: Math.round(total),
@@ -606,12 +606,19 @@ async function processOrder() {
         }))
       })
     });
+    
     cart = [];
     safeLocalStorage.setItem('cart', '[]');
     updateCartUI();
     closeModal(document.getElementById('checkout-modal'));
     closeModal(document.getElementById('basket-modal'));
-    alert('Заказ успешно оформлен!');
+    
+    if (paymentMethod === 'online') {
+      alert('Заказ создан! Сейчас вы будете перенаправлены на страницу оплаты.');
+      window.location.href = `payment.html?orderId=${response.id}`;
+    } else {
+      alert('Заказ успешно оформлен!');
+    }
   } catch(e) { alert('Ошибка: ' + e.message); }
 }
 
@@ -686,7 +693,6 @@ async function loadComponentsAdmin() {
   } catch(e) { console.error('Load components admin error:', e); }
 }
 
-// ========== ИНИЦИАЛИЗАЦИЯ ==========
 document.addEventListener('DOMContentLoaded', () => {
   const burgerDropdown = document.querySelector('.burger-dropdown');
   if (burgerDropdown && !document.getElementById('auth-btn-in-burger')) {
