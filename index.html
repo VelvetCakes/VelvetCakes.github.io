@@ -9,6 +9,19 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <script>
+    (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const confirmed = urlParams.get('confirmed');
+        if (confirmed === 'true') {
+            setTimeout(() => {
+                alert('✅ Email подтверждён! Теперь вы можете войти в аккаунт.');
+                // Убираем параметр из URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 500);
+        }
+    })();
+</script>
 <header>
   <div class="container">
     <div class="header-content">

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение email - Velvet</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .confirm-container {
+            max-width: 500px;
+            margin: 100px auto;
+            padding: 40px;
+            text-align: center;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .success { color: #4caf50; }
+        .error { color: #ff4757; }
+        .loading { color: #ff9800; }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 12px 32px;
+            border-radius: 40px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            display: inline-block;
+            text-decoration: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(232, 95, 185, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="confirm-container">
+        <h1>📧 Подтверждение email</h1>
+        <div id="message" class="loading">Подтверждение...</div>
+        <div id="buttons" style="margin-top: 20px;"></div>
+    </div>
+    
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('userId');
+        const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
+        
+        async function confirmEmail() {
+            const messageEl = document.getElementById('message');
+            const buttonsEl = document.getElementById('buttons');
+            
+            if (!userId) {
+                messageEl.innerHTML = '<p class="error">❌ Неверная ссылка подтверждения</p>';
+                buttonsEl.innerHTML = '<a href="index.html" class="btn-primary">На главную</a>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/confirm-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: parseInt(userId) })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    messageEl.innerHTML = '<p class="success">✅ ' + data.message + '</p><p>Теперь вы можете войти в свой аккаунт.</p>';
+                    buttonsEl.innerHTML = `
+                        <a href="index.html" class="btn-primary">🏠 На главную</a>
+                        <a href="index.html?auth=login" class="btn-primary" style="margin-left: 10px;">🔑 Войти</a>
+                    `;
+                } else {
+                    messageEl.innerHTML = '<p class="error">❌ ' + (data.message || 'Ошибка подтверждения') + '</p>';
+                    buttonsEl.innerHTML = '<a href="index.html" class="btn-primary">На главную</a>';
+                }
+            } catch(e) {
+                messageEl.innerHTML = '<p class="error">❌ Ошибка соединения с сервером</p>';
+                buttonsEl.innerHTML = '<a href="index.html" class="btn-primary">На главную</a>';
+            }
+        }
+        
+        confirmEmail();
+    </script>
+</body>
+</html>

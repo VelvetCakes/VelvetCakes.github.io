@@ -44,22 +44,6 @@
             background: #fff3e6;
             color: #ff9800;
         }
-        .btn-pay {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 40px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: all 0.3s;
-        }
-        .btn-pay:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(232, 95, 185, 0.3);
-        }
         .order-details {
             text-align: left;
             margin: 20px 0;
@@ -135,9 +119,17 @@
     const orderId = urlParams.get('orderId');
     
     let checkoutWidget = null;
-    let paymentCreated = false;
     
     console.log('Payment page loaded, orderId:', orderId);
+    
+    if (typeof window.YooMoneyCheckoutWidget === 'undefined') {
+        console.error('YooMoneyCheckoutWidget not loaded!');
+        document.getElementById('payment-status').innerHTML = 
+            '<div class="status-error">❌ Не удалось загрузить платежный виджет. Проверьте интернет-соединение.</div>';
+        document.getElementById('payment-status').classList.remove('hidden');
+    } else {
+        console.log('YooMoneyCheckoutWidget loaded successfully');
+    }
     
     async function loadOrderInfo() {
         if (!orderId) {
@@ -165,10 +157,8 @@
                 document.getElementById('order-amount').textContent = `${order.totalAmount} ₽`;
                 
                 if (order.status !== 'Ожидает оплаты') {
-                    if (order.paidAmount > 0 || order.status === 'Новый' || order.status === 'В работе' || order.status === 'Готов' || order.status === 'Доставлен') {
-                        showSuccess('✅ Заказ уже обработан или оплачен!');
-                        return;
-                    }
+                    showSuccess('✅ Заказ уже обработан или оплачен!');
+                    return;
                 }
                 
                 await createPaymentAndShowWidget(order.totalAmount);
@@ -212,7 +202,6 @@
             document.getElementById('loader').classList.add('hidden');
             
             if (response.ok && data.confirmationToken) {
-                // Используем виджет с confirmation_token
                 initWidget(data.confirmationToken);
             } else {
                 throw new Error(data.error || data.message || 'Ошибка создания платежа');
@@ -239,7 +228,6 @@
                 }
             });
             
-            // Отображаем платежную форму
             checkoutWidget.render('payment-form')
                 .then(() => {
                     console.log('Widget rendered successfully');

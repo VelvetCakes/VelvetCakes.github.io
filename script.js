@@ -836,13 +836,14 @@ async function processOrder() {
         });
         
         const orderData = response;
+        const orderId = orderData.order?.id || orderData.id;
         
         if (paymentMethod === 'online') {
-            safeLocalStorage.setItem('pendingOrderId', orderData.order?.id || orderData.id);
+            safeLocalStorage.setItem('pendingOrderId', orderId);
             safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
             
             alert('Заказ создан! Сейчас вы будете перенаправлены на страницу оплаты.');
-            window.location.href = `payment.html?orderId=${orderData.order?.id || orderData.id}`;
+            window.location.href = `payment.html?orderId=${orderId}`;
         } else {
             cart = [];
             safeLocalStorage.setItem('cart', '[]');
