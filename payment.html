@@ -67,9 +67,25 @@
             background: #fafafa;
             border-radius: 16px;
         }
-        .loading {
-            text-align: center;
-            padding: 40px;
+        #payment-form {
+            margin: 20px 0;
+            min-width: 288px;
+        }
+        .hidden {
+            display: none;
+        }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -99,31 +115,34 @@
         <p style="font-size: 12px; margin-top: 8px; color: #666;">Чек отправляется на email после оплаты</p>
     </div>
 
-    <div id="payment-status" class="payment-status status-pending">
+    <div id="payment-form"></div>
+
+    <div id="payment-status" class="payment-status status-pending hidden">
         ⏳ Ожидание оплаты...
     </div>
 
-    <button class="btn-pay" id="pay-button">💳 Оплатить через ЮKassa</button>
+    <div id="loader" class="loader hidden"></div>
+    
     <button class="btn" onclick="window.location.href='profile.html'" style="margin-top: 16px; background: #ccc;">📦 Перейти к заказам</button>
 </main>
+
+<script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
 
 <script>
     const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
     
     const urlParams = new URLSearchParams(window.location.search);
     const orderId = urlParams.get('orderId');
-    const paymentId = urlParams.get('paymentId');
-    const status = urlParams.get('status');
+    
+    let checkoutWidget = null;
+    let paymentCreated = false;
     
     console.log('Payment page loaded, orderId:', orderId);
     
     async function loadOrderInfo() {
         if (!orderId) {
             document.getElementById('order-id').textContent = 'Не указан';
-            document.getElementById('payment-status').innerHTML = `
-                <div class="status-error">❌ Не указан номер заказа</div>
-            `;
-            document.getElementById('pay-button').style.display = 'none';
+            showError('❌ Не указан номер заказа');
             return;
         }
         
@@ -132,10 +151,7 @@
         try {
             const token = localStorage.getItem('authToken');
             if (!token) {
-                document.getElementById('payment-status').innerHTML = `
-                    <div class="status-error">❌ Вы не авторизованы. <a href="index.html?auth=login">Войдите</a></div>
-                `;
-                document.getElementById('pay-button').style.display = 'none';
+                showError('❌ Вы не авторизованы. <a href="index.html?auth=login" style="color: var(--primary);">Войдите</a>');
                 return;
             }
             
@@ -148,49 +164,33 @@
             if (order) {
                 document.getElementById('order-amount').textContent = `${order.totalAmount} ₽`;
                 
-                if (order.paidAmount > 0) {
-                    document.getElementById('payment-status').innerHTML = `
-                        <div class="status-success">✅ Заказ уже оплачен!</div>
-                    `;
-                    document.getElementById('pay-button').style.display = 'none';
+                if (order.status !== 'Ожидает оплаты') {
+                    if (order.paidAmount > 0 || order.status === 'Новый' || order.status === 'В работе' || order.status === 'Готов' || order.status === 'Доставлен') {
+                        showSuccess('✅ Заказ уже обработан или оплачен!');
+                        return;
+                    }
                 }
+                
+                await createPaymentAndShowWidget(order.totalAmount);
             } else {
-                document.getElementById('payment-status').innerHTML = `
-                    <div class="status-error">❌ Заказ не найден</div>
-                `;
-                document.getElementById('pay-button').style.display = 'none';
+                showError('❌ Заказ не найден');
             }
         } catch(e) {
             console.error('Error loading order:', e);
-            document.getElementById('payment-status').innerHTML = `
-                <div class="status-error">❌ Ошибка загрузки заказа</div>
-            `;
+            showError('❌ Ошибка загрузки заказа');
         }
     }
     
-    if (status === 'success') {
-        document.getElementById('payment-status').innerHTML = `
-            <div class="status-success">✅ Оплата успешно произведена!</div>
-        `;
-        document.getElementById('pay-button').style.display = 'none';
-    } else if (status === 'error') {
-        document.getElementById('payment-status').innerHTML = `
-            <div class="status-error">❌ Ошибка оплаты. Попробуйте снова или выберите другой способ оплаты.</div>
-        `;
-    }
-    
-    document.getElementById('pay-button').addEventListener('click', async () => {
+    async function createPaymentAndShowWidget(amount) {
         const token = localStorage.getItem('authToken');
         
         if (!token) {
-            alert('Войдите в аккаунт для оплаты');
-            window.location.href = 'index.html?auth=login';
+            showError('❌ Вы не авторизованы');
             return;
         }
         
         try {
-            document.getElementById('pay-button').disabled = true;
-            document.getElementById('pay-button').textContent = '⏳ Создание платежа...';
+            document.getElementById('loader').classList.remove('hidden');
             
             const returnUrl = `${window.location.origin}/payment.html?orderId=${orderId}&status=success`;
             
@@ -209,55 +209,80 @@
             const data = await response.json();
             console.log('Payment response:', data);
             
-            if (response.ok && data.paymentUrl) {
-                // Перенаправляем на ЮKassa
-                window.location.href = data.paymentUrl;
+            document.getElementById('loader').classList.add('hidden');
+            
+            if (response.ok && data.confirmationToken) {
+                // Используем виджет с confirmation_token
+                initWidget(data.confirmationToken);
             } else {
-                throw new Error(data.message || data.error || 'Ошибка создания платежа');
+                throw new Error(data.error || data.message || 'Ошибка создания платежа');
             }
         } catch(e) {
             console.error('Payment error:', e);
-            alert('Ошибка: ' + e.message);
-            document.getElementById('pay-button').disabled = false;
-            document.getElementById('pay-button').textContent = '💳 Оплатить через ЮKassa';
+            document.getElementById('loader').classList.add('hidden');
+            showError('❌ Ошибка: ' + e.message);
         }
-    });
-
-    async function checkOrderStatus(orderId) {
-    const token = localStorage.getItem('authToken');
-    if (!token) return;
-    
-    try {
-        const response = await fetch(`${API_BASE}/orders/my`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const orders = await response.json();
-        const order = orders.find(o => o.id == orderId);
-        
-        if (order && order.status !== 'Ожидает оплаты') {
-            // Если заказ уже не ожидает оплаты, значит оплачен
-            document.getElementById('payment-status').innerHTML = `
-                <div class="status-success">✅ Заказ уже оплачен!</div>
-            `;
-            document.getElementById('pay-button').style.display = 'none';
-            
-            // Очищаем корзину, если она еще не очищена
-            const pendingCart = localStorage.getItem('pendingCart');
-            if (pendingCart) {
-                localStorage.setItem('cart', '[]');
-                localStorage.removeItem('pendingCart');
-                localStorage.removeItem('pendingOrderId');
-            }
-        }
-    } catch(e) {
-        console.error('Error checking order status:', e);
     }
-}
-
-if (orderId) {
-    loadOrderInfo();
-    checkOrderStatus(orderId);
-}
+    
+    function initWidget(confirmationToken) {
+        console.log('Initializing widget with token:', confirmationToken);
+        
+        const returnUrl = `${window.location.origin}/payment.html?orderId=${orderId}&status=success`;
+        
+        try {
+            checkoutWidget = new window.YooMoneyCheckoutWidget({
+                confirmation_token: confirmationToken,
+                return_url: returnUrl,
+                error_callback: function(error) {
+                    console.error('Widget error:', error);
+                    showError('Ошибка виджета: ' + JSON.stringify(error));
+                }
+            });
+            
+            // Отображаем платежную форму
+            checkoutWidget.render('payment-form')
+                .then(() => {
+                    console.log('Widget rendered successfully');
+                    document.getElementById('payment-status').classList.remove('hidden');
+                    document.getElementById('payment-status').innerHTML = '💳 Выберите способ оплаты и введите данные карты';
+                    document.getElementById('payment-status').className = 'payment-status status-pending';
+                })
+                .catch(error => {
+                    console.error('Widget render error:', error);
+                    showError('Ошибка отображения платежной формы');
+                });
+        } catch(e) {
+            console.error('Widget initialization error:', e);
+            showError('Ошибка инициализации виджета: ' + e.message);
+        }
+    }
+    
+    function showError(message) {
+        const statusDiv = document.getElementById('payment-status');
+        statusDiv.innerHTML = message;
+        statusDiv.className = 'payment-status status-error';
+        statusDiv.classList.remove('hidden');
+    }
+    
+    function showSuccess(message) {
+        const statusDiv = document.getElementById('payment-status');
+        statusDiv.innerHTML = message;
+        statusDiv.className = 'payment-status status-success';
+        statusDiv.classList.remove('hidden');
+    }
+    
+    const statusParam = urlParams.get('status');
+    if (statusParam === 'success') {
+        showSuccess('✅ Оплата успешно произведена! Спасибо за заказ!');
+        const pendingCart = localStorage.getItem('pendingCart');
+        if (pendingCart) {
+            localStorage.setItem('cart', '[]');
+            localStorage.removeItem('pendingCart');
+            localStorage.removeItem('pendingOrderId');
+        }
+    } else {
+        loadOrderInfo();
+    }
 </script>
 </body>
 </html>
