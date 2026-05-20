@@ -320,23 +320,228 @@ function renderReviews() {
   });
 }
 
+// ========== КОНСТРУКТОР С РАСЧЕТОМ ЦЕНЫ ==========
+
+let fillingCounter = 1;
+let cakeBaseCounter = 1;
+
+// Стоимость компонентов
+const componentPrices = {
+    fillings: {
+        'Strawberry': 150,
+        'Blueberry': 180,
+        'Chocolate': 200,
+        'Caramel': 170,
+        'Raspberry': 160,
+        'Pistachio': 250
+    },
+    cakeBases: {
+        'Vanilla sponge': 200,
+        'Chocolate sponge': 220,
+        'Honey sponge': 250,
+        'Coconut sponge': 230
+    }
+};
+
+// Функция для расчета общей стоимости
+function calculateTotalPrice() {
+    const weight = parseFloat(document.getElementById('weight')?.value) || 1;
+    const basePricePerKg = 950;
+    
+    const baseCost = weight * basePricePerKg;
+    
+    // Стоимость выбранных бисквитов
+    let cakeBaseCost = 0;
+    const allCakeBases = document.querySelectorAll('select[id^="cake-base-"]');
+    let hasCakeBase = false;
+    
+    allCakeBases.forEach(select => {
+        const selectedValue = select.value;
+        if (selectedValue && selectedValue !== 'Выберите бисквит...' && selectedValue !== '') {
+            hasCakeBase = true;
+            const price = componentPrices.cakeBases[selectedValue] || 200;
+            cakeBaseCost += price;
+        }
+    });
+    
+    // Стоимость выбранных начинок
+    let fillingsCost = 0;
+    const allFillings = document.querySelectorAll('select[id^="filling-"]');
+    let hasFilling = false;
+    
+    allFillings.forEach(select => {
+        const selectedValue = select.value;
+        if (selectedValue && selectedValue !== 'Выберите начинку...' && selectedValue !== '') {
+            hasFilling = true;
+            const price = componentPrices.fillings[selectedValue] || 150;
+            fillingsCost += price;
+        }
+    });
+    
+    const total = baseCost + cakeBaseCost + fillingsCost;
+    
+    // Обновляем отображение
+    const cakeBaseCostEl = document.getElementById('cake-base-cost');
+    const fillingsCostEl = document.getElementById('fillings-cost');
+    const totalPriceEl = document.getElementById('total-price');
+    
+    if (cakeBaseCostEl) cakeBaseCostEl.textContent = `${Math.round(cakeBaseCost)} ₽`;
+    if (fillingsCostEl) fillingsCostEl.textContent = `${Math.round(fillingsCost)} ₽`;
+    if (totalPriceEl) totalPriceEl.innerHTML = `${Math.round(total)} ₽`;
+    
+    // Сохраняем состояние для валидации
+    window.constructorState = {
+        hasFilling,
+        hasCakeBase,
+        total,
+        weight
+    };
+    
+    return total;
+}
+
+// Функция валидации конструктора
+function validateConstructor() {
+    const allFillings = document.querySelectorAll('select[id^="filling-"]');
+    const allCakeBases = document.querySelectorAll('select[id^="cake-base-"]');
+    
+    let hasValidFilling = false;
+    let hasValidCakeBase = false;
+    
+    allFillings.forEach(select => {
+        const value = select.value;
+        if (value && value !== 'Выберите начинку...' && value !== '') {
+            hasValidFilling = true;
+        }
+    });
+    
+    allCakeBases.forEach(select => {
+        const value = select.value;
+        if (value && value !== 'Выберите бисквит...' && value !== '') {
+            hasValidCakeBase = true;
+        }
+    });
+    
+    if (!hasValidFilling) {
+        showToast('❌ Пожалуйста, выберите хотя бы одну начинку для торта');
+        return false;
+    }
+    
+    if (!hasValidCakeBase) {
+        showToast('❌ Пожалуйста, выберите хотя бы один бисквит для торта');
+        return false;
+    }
+    
+    return true;
+}
+
+// Функция добавления новой начинки
+function addNewFilling() {
+    const container = document.getElementById('filling-container');
+    const newId = fillingCounter++;
+    const fillings = JSON.parse(safeLocalStorage.getItem('fillings') || '[]');
+    
+    const newDiv = document.createElement('div');
+    newDiv.className = 'form-group';
+    newDiv.id = `filling-group-${newId}`;
+    newDiv.innerHTML = `
+        <div class="form-row">
+            <select id="filling-${newId}" style="flex: 1;" class="filling-select">
+                <option value="" disabled selected>Выберите начинку...</option>
+                ${fillings.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('')}
+            </select>
+            <button type="button" class="remove-option-btn" data-id="${newId}" style="width: 48px; height: 48px; border-radius: var(--border-radius-sm); background: #ff4757; color: white; border: none; cursor: pointer; font-size: 20px;">✕</button>
+        </div>
+    `;
+    container.appendChild(newDiv);
+    
+    newDiv.querySelector('.filling-select').addEventListener('change', calculateTotalPrice);
+    newDiv.querySelector('.remove-option-btn').addEventListener('click', () => {
+        newDiv.remove();
+        calculateTotalPrice();
+    });
+    
+    calculateTotalPrice();
+}
+
+// Функция добавления нового бисквита
+function addNewCakeBase() {
+    const container = document.getElementById('cake-base-container');
+    const newId = cakeBaseCounter++;
+    const cakeBases = JSON.parse(safeLocalStorage.getItem('cakeBases') || '[]');
+    
+    const newDiv = document.createElement('div');
+    newDiv.className = 'form-group';
+    newDiv.id = `cakebase-group-${newId}`;
+    newDiv.innerHTML = `
+        <div class="form-row">
+            <select id="cake-base-${newId}" style="flex: 1;" class="cakebase-select">
+                <option value="" disabled selected>Выберите бисквит...</option>
+                ${cakeBases.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('')}
+            </select>
+            <button type="button" class="remove-option-btn" data-id="${newId}" style="width: 48px; height: 48px; border-radius: var(--border-radius-sm); background: #ff4757; color: white; border: none; cursor: pointer; font-size: 20px;">✕</button>
+        </div>
+    `;
+    container.appendChild(newDiv);
+    
+    newDiv.querySelector('.cakebase-select').addEventListener('change', calculateTotalPrice);
+    newDiv.querySelector('.remove-option-btn').addEventListener('click', () => {
+        newDiv.remove();
+        calculateTotalPrice();
+    });
+    
+    calculateTotalPrice();
+}
+
 function updateConstructorSelects() {
-  const fill = (id, opts) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = '<option value="" disabled selected>Выберите...</option>' + opts.map(o=>`<option>${escapeHtml(o)}</option>`).join('');
-  };
-  fill('filling-0', JSON.parse(safeLocalStorage.getItem('fillings')||'[]'));
-  fill('cake-base-0', JSON.parse(safeLocalStorage.getItem('cakeBases')||'[]'));
+    const fillings = JSON.parse(safeLocalStorage.getItem('fillings') || '[]');
+    const cakeBases = JSON.parse(safeLocalStorage.getItem('cakeBases') || '[]');
+    
+    document.querySelectorAll('select[id^="filling-"]').forEach(select => {
+        const currentVal = select.value;
+        select.innerHTML = '<option value="" disabled selected>Выберите начинку...</option>' + 
+            fillings.map(o => `<option value="${escapeHtml(o)}" ${currentVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+        select.removeEventListener('change', calculateTotalPrice);
+        select.addEventListener('change', calculateTotalPrice);
+    });
+    
+    document.querySelectorAll('select[id^="cake-base-"]').forEach(select => {
+        const currentVal = select.value;
+        select.innerHTML = '<option value="" disabled selected>Выберите бисквит...</option>' + 
+            cakeBases.map(o => `<option value="${escapeHtml(o)}" ${currentVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+        select.removeEventListener('change', calculateTotalPrice);
+        select.addEventListener('change', calculateTotalPrice);
+    });
+    
+    calculateTotalPrice();
 }
 
 function addToCart(p) {
-  const ex = cart.find(i => i.id === p.id || (i.name === p.name && !p.id));
-  if (ex) ex.quantity = (ex.quantity||0) + 1;
-  else cart.push({...p, quantity:1});
-  safeLocalStorage.setItem('cart', JSON.stringify(cart));
-  updateCartUI();
-  showToast('Товар добавлен в корзину');
+    const isCustomCake = p.isCustom === true;
+    
+    let existingItem;
+    if (isCustomCake) {
+        existingItem = cart.find(item => 
+            item.isCustom === true && 
+            JSON.stringify(item.customData) === JSON.stringify(p.customData)
+        );
+    } else {
+        existingItem = cart.find(i => i.id === p.id);
+    }
+    
+    if (existingItem) {
+        existingItem.quantity = (existingItem.quantity || 0) + 1;
+    } else {
+        cart.push({
+            ...p, 
+            quantity: 1,
+            id: p.id || Date.now()
+        });
+    }
+    
+    safeLocalStorage.setItem('cart', JSON.stringify(cart));
+    updateCartUI();
+    showToast(p.isCustom ? 'Индивидуальный торт добавлен в корзину!' : 'Товар добавлен в корзину');
 }
 
 function setupSearch() {
@@ -618,9 +823,14 @@ async function processOrder() {
                 deliveryDate: deliveryDate,
                 paymentMethod: paymentMethod,
                 items: cart.map(i => ({
-                    productId: i.id <= 9000000 ? i.id : null,
-                    name: i.name, description: i.desc, weight: parseFloat(i.weight) || 1, 
-                    price: i.price, quantity: i.quantity || 1
+                    productId: (i.id && i.id <= 9000000 && !i.isCustom) ? i.id : null,
+                    isCustom: i.isCustom || false,
+                    name: i.name,
+                    description: i.desc,
+                    weight: parseFloat(i.weight) || 1,
+                    price: i.price,
+                    quantity: i.quantity || 1,
+                    customData: i.customData || null
                 }))
             })
         });
@@ -808,6 +1018,27 @@ async function loadPendingReviews() {
     }
 }
 
+// Инициализация конструктора
+function initConstructor() {
+    document.getElementById('add-filling-btn')?.addEventListener('click', addNewFilling);
+    document.getElementById('add-cake-base-btn')?.addEventListener('click', addNewCakeBase);
+    
+    const weightInput = document.getElementById('weight');
+    if (weightInput) {
+        weightInput.addEventListener('input', calculateTotalPrice);
+        weightInput.addEventListener('change', calculateTotalPrice);
+    }
+    
+    const deliveryDate = document.getElementById('delivery-date');
+    if (deliveryDate) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        deliveryDate.min = deliveryDate.value = tomorrow.toISOString().split('T')[0];
+    }
+    
+    setTimeout(calculateTotalPrice, 100);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const burgerDropdown = document.querySelector('.burger-dropdown');
   if (burgerDropdown && !document.getElementById('auth-btn-in-burger')) {
@@ -828,6 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initChat();
   setupCheckout();
   setupCatalogToggle();
+  initConstructor();
   
   const categorySelect = document.getElementById('category-select');
   if (categorySelect) categorySelect.addEventListener('change', (e) => renderCatalog(e.target.value));
@@ -1026,24 +1258,60 @@ document.addEventListener('DOMContentLoaded', () => {
     try { await apiFetch('/components/cakeBases', { method:'POST', body: JSON.stringify({ name }) }); alert('Бисквит добавлен'); document.getElementById('new-cake-base-name').value = ''; loadComponentsAdmin(); loadComponents(); } catch(e) { alert('Ошибка: ' + e.message); }
   });
   
-  const weightIn = document.getElementById('weight');
-  const totalEl = document.getElementById('total-price');
-  function calcPrice() {
-    if (!weightIn || !totalEl) return;
-    const w = parseFloat(weightIn.value) || 1;
-    let p = w * 950;
-    totalEl.textContent = `${Math.round(p)} ₽`;
-  }
-  weightIn?.addEventListener('input', calcPrice);
-  
+  // НОВАЯ ЛОГИКА ДЛЯ КНОПКИ "В КОРЗИНУ" В КОНСТРУКТОРЕ
   document.getElementById('add-constructor-to-cart')?.addEventListener('click', () => {
-    const w = Math.max(0.5, parseFloat(document.getElementById('weight')?.value) || 1);
-    if (!document.getElementById('delivery-date')?.value) return alert('Укажите дату');
-    const desc = `Бисквит: ${document.getElementById('cake-base-0')?.value || 'Стандарт'}`;
-    const price = parseInt(document.getElementById('total-price')?.textContent) || 950;
-    addToCart({ name: `Индивидуальный торт (${w} кг)`, desc, price, img: 'image/image 13.png', weight: `${w} кг` });
+    if (!validateConstructor()) return;
+    
+    const weight = Math.max(0.5, parseFloat(document.getElementById('weight')?.value) || 1);
+    const deliveryDate = document.getElementById('delivery-date')?.value;
+    
+    if (!deliveryDate) {
+        showToast('❌ Укажите дату получения');
+        return;
+    }
+    
+    // Собираем выбранные начинки
+    const selectedFillings = [];
+    document.querySelectorAll('select[id^="filling-"]').forEach(select => {
+        const value = select.value;
+        if (value && value !== 'Выберите начинку...' && value !== '') {
+            selectedFillings.push(value);
+        }
+    });
+    
+    // Собираем выбранные бисквиты
+    const selectedCakeBases = [];
+    document.querySelectorAll('select[id^="cake-base-"]').forEach(select => {
+        const value = select.value;
+        if (value && value !== 'Выберите бисквит...' && value !== '') {
+            selectedCakeBases.push(value);
+        }
+    });
+    
+    const totalPrice = window.constructorState?.total || calculateTotalPrice();
+    const designNotes = document.getElementById('design-notes')?.value || '';
+    
+    const description = `🍰 Вес: ${weight} кг | Бисквит: ${selectedCakeBases.join(', ')} | Начинки: ${selectedFillings.join(', ')}${designNotes ? ` | Пожелания: ${designNotes.substring(0, 100)}` : ''}`;
+    
+    addToCart({
+        id: null,
+        name: `Индивидуальный торт (${weight} кг)`,
+        desc: description.substring(0, 200),
+        price: totalPrice,
+        img: 'image/image 13.png',
+        weight: `${weight} кг`,
+        isCustom: true,
+        customData: {
+            weight,
+            fillings: selectedFillings,
+            cakeBases: selectedCakeBases,
+            designNotes,
+            deliveryDate
+        }
+    });
+    
     openModal(basketModal);
-    calcPrice();
+    calculateTotalPrice();
   });
   
   document.addEventListener('click', e => {
@@ -1063,89 +1331,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (new URLSearchParams(location.search).get('auth') === 'login') {
     setTimeout(() => { if (authModal) openModal(authModal); }, 150);
   }
-
-  let fillingCounter = 1;
-let cakeBaseCounter = 1;
-
-function addNewFilling() {
-    const container = document.getElementById('filling-container');
-    const newId = fillingCounter++;
-    const fillings = JSON.parse(safeLocalStorage.getItem('fillings') || '[]');
-    
-    const newDiv = document.createElement('div');
-    newDiv.className = 'form-group';
-    newDiv.id = `filling-group-${newId}`;
-    newDiv.innerHTML = `
-        <div class="form-row">
-            <select id="filling-${newId}" style="flex: 1;">
-                <option value="" disabled selected>Выберите начинку...</option>
-                ${fillings.map(f => `<option>${escapeHtml(f)}</option>`).join('')}
-            </select>
-            <button type="button" class="remove-option-btn" data-id="${newId}" style="width: 48px; height: 48px; border-radius: var(--border-radius-sm); background: #ff4757; color: white; border: none; cursor: pointer;">✕</button>
-        </div>
-    `;
-    container.appendChild(newDiv);
-    
-    newDiv.querySelector('.remove-option-btn').addEventListener('click', () => {
-        newDiv.remove();
-    });
-}
-
-function addNewCakeBase() {
-    const container = document.getElementById('cake-base-container');
-    const newId = cakeBaseCounter++;
-    const cakeBases = JSON.parse(safeLocalStorage.getItem('cakeBases') || '[]');
-    
-    const newDiv = document.createElement('div');
-    newDiv.className = 'form-group';
-    newDiv.id = `cakebase-group-${newId}`;
-    newDiv.innerHTML = `
-        <div class="form-row">
-            <select id="cake-base-${newId}" style="flex: 1;">
-                <option value="" disabled selected>Выберите бисквит...</option>
-                ${cakeBases.map(b => `<option>${escapeHtml(b)}</option>`).join('')}
-            </select>
-            <button type="button" class="remove-option-btn" data-id="${newId}" style="width: 48px; height: 48px; border-radius: var(--border-radius-sm); background: #ff4757; color: white; border: none; cursor: pointer;">✕</button>
-        </div>
-    `;
-    container.appendChild(newDiv);
-    
-    newDiv.querySelector('.remove-option-btn').addEventListener('click', () => {
-        newDiv.remove();
-    });
-}
-
-document.getElementById('add-filling-btn')?.addEventListener('click', addNewFilling);
-document.getElementById('add-cake-base-btn')?.addEventListener('click', addNewCakeBase);
-
-function updateConstructorSelects() {
-    const fillings = JSON.parse(safeLocalStorage.getItem('fillings') || '[]');
-    const cakeBases = JSON.parse(safeLocalStorage.getItem('cakeBases') || '[]');
-    
-    document.querySelectorAll('select[id^="filling-"]').forEach(select => {
-        const currentVal = select.value;
-        select.innerHTML = '<option value="" disabled selected>Выберите начинку...</option>' + 
-            fillings.map(o => `<option ${currentVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-    });
-    
-    document.querySelectorAll('select[id^="cake-base-"]').forEach(select => {
-        const currentVal = select.value;
-        select.innerHTML = '<option value="" disabled selected>Выберите бисквит...</option>' + 
-            cakeBases.map(o => `<option ${currentVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-    });
-}
-
-const originalLoadComponents = loadComponents;
-window.loadComponents = async function() {
-    try {
-        const [f,b] = await Promise.all([
-            fetch(`${API_BASE}/components/fillings`),
-            fetch(`${API_BASE}/components/cakeBases`)
-        ]);
-        const fillings = await f.json(), bases = await b.json();
-        safeLocalStorage.setItem('fillings', JSON.stringify(fillings.map(x=>x.name)));
-        safeLocalStorage.setItem('cakeBases', JSON.stringify(bases.map(x=>x.name)));
-        updateConstructorSelects(); // Теперь эта функция обновляет ВСЕ селекты
-    } catch(e) { console.error(e); }
-};
 });
