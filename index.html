@@ -242,7 +242,6 @@
 <p>© 2026 Velvet. Все права защищены.</p>
 </div>
 </footer>
-<!-- Модальные окна -->
 <div id="orders-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="orders-title">
 <div class="modal-content">
 <button class="modal-close" aria-label="Закрыть"></button>
@@ -299,7 +298,12 @@
           <input type="text" id="new-cake-base-name" placeholder="Название нового бисквита" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
           <button type="button" id="admin-add-cake-base-btn" class="btn" style="padding:8px 16px;">+ Добавить</button>
         </div>
-      </div>
+
+        <h4 style="margin-top: 24px;">📝 Модерация отзывов</h4>
+        <div id="pending-reviews-list" style="max-height: 400px; overflow-y: auto; margin: 15px 0; border: 1px solid #eee; border-radius: 12px; padding: 10px; background: #fafafa;">
+        <p style="text-align: center; padding: 20px; color: #888;">Загрузка отзывов...</p>
+        </div>
+      </div>     
     </div>
   </div>
 </div>
@@ -379,7 +383,6 @@
 </div>
 </div>
 </div>
-<!-- Кнопка чата -->
 <div id="chat-button" class="chat-button" style="display: none;">
     <button class="chat-toggle-btn">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -389,7 +392,6 @@
     </button>
 </div>
 
-<!-- Модальное окно чата -->
 <div id="chat-modal" class="modal-overlay">
     <div class="modal-content chat-modal-content">
         <button class="modal-close" aria-label="Закрыть"></button>
@@ -412,7 +414,6 @@
     </div>
 </div>
 
-<!-- Модальное окно оформления заказа -->
 <div id="checkout-modal" class="modal-overlay">
     <div class="modal-content">
         <button class="modal-close" aria-label="Закрыть"></button>
@@ -467,7 +468,6 @@
         </div>
     </div>
 </div>
-<!-- Глобальные геометрические фигуры (статичные, видны на всём сайте) -->
 <div class="shape-3"></div>
 <div class="shape-4"></div>
 <div class="shape-5"></div>

@@ -1049,6 +1049,7 @@ footer p {
   flex: 1;
   overflow-y: auto;
   padding: 24px 32px;
+   background: white;
 }
 
 .modal-title {
@@ -1057,11 +1058,11 @@ footer p {
   margin: 0;
 }
 
-/* Basket */
 .basket-items {
   padding: 0 0 20px;
   overflow-y: auto;
   flex: 1;
+   background: white;
 }
 
 .basket-item {
@@ -1154,14 +1155,16 @@ footer p {
 }
 
 .basket-footer {
-  padding: 20px 0 0;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 16px;
+    background: white;
+    border-top: 1px solid var(--border-color);
+    padding: 20px 0 0;
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
 }
 
 .total-label {

@@ -590,45 +590,25 @@ function updateCheckoutTotal() {
 
 async function processOrder() {
     const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
-    if (!user || user.role !== 'user') { 
-        alert('Войдите как клиент'); 
-        return; 
-    }
+    if (!user || user.role !== 'user') { alert('Войдите как клиент'); return; }
     
     const deliveryType = document.getElementById('delivery-type').value;
     const paymentMethod = document.getElementById('payment-method').value;
     const deliveryDate = document.getElementById('checkout-delivery-date').value;
     const comments = document.getElementById('order-comments').value;
-    let deliveryAddress = '';
     
+    let deliveryAddress = '';
     if (deliveryType === 'delivery') {
         deliveryAddress = document.getElementById('delivery-address').value.trim();
-        if (!deliveryAddress) { 
-            alert('Укажите адрес доставки'); 
-            return; 
-        }
+        if (!deliveryAddress) { alert('Укажите адрес доставки'); return; }
     }
-    
-    if (!deliveryDate) { 
-        alert('Укажите дату'); 
-        return; 
-    }
+    if (!deliveryDate) { alert('Укажите дату'); return; }
     
     let total = currentCartTotal;
     if (deliveryType === 'pickup') total = total * 0.85;
     else if (deliveryType === 'delivery') total = total + 250;
     
-    const selectedPaymentMethod = paymentMethod;
-    
     try {
-        const submitBtn = document.querySelector('#checkout-form button[type="submit"]');
-        const originalText = submitBtn?.textContent || 'Подтвердить заказ';
-        if (submitBtn) {
-            submitBtn.textContent = '⏳ Создание заказа...';
-            submitBtn.disabled = true;
-        }
-        
-        // Создаем заказ
         const response = await apiFetch('/orders', {
             method: 'POST',
             body: JSON.stringify({
@@ -636,45 +616,33 @@ async function processOrder() {
                 deliveryAddress: deliveryAddress || 'Самовывоз',
                 comments: comments,
                 deliveryDate: deliveryDate,
-                paymentMethod: selectedPaymentMethod,
+                paymentMethod: paymentMethod,
                 items: cart.map(i => ({
                     productId: i.id <= 9000000 ? i.id : null,
-                    name: i.name, 
-                    description: i.desc, 
-                    weight: parseFloat(i.weight) || 1, 
-                    price: i.price, 
-                    quantity: i.quantity || 1
+                    name: i.name, description: i.desc, weight: parseFloat(i.weight) || 1, 
+                    price: i.price, quantity: i.quantity || 1
                 }))
             })
         });
         
-        const order = response;
-        console.log('Order created:', order);
+        const orderData = response;
         
-    
-        cart = [];
-        safeLocalStorage.setItem('cart', '[]');
-        updateCartUI();
-        
-        closeModal(document.getElementById('checkout-modal'));
-        closeModal(document.getElementById('basket-modal'));
-        
-        if (selectedPaymentMethod === 'online') {
-            console.log('Redirecting to payment page for order:', order.id);
-            window.location.href = `payment.html?orderId=${order.id}`;
+        if (paymentMethod === 'online') {
+            safeLocalStorage.setItem('pendingOrderId', orderData.order?.id || orderData.id);
+            safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
+            
+            alert('Заказ создан! Сейчас вы будете перенаправлены на страницу оплаты.');
+            window.location.href = `payment.html?orderId=${orderData.order?.id || orderData.id}`;
         } else {
+            cart = [];
+            safeLocalStorage.setItem('cart', '[]');
+            updateCartUI();
+            closeModal(document.getElementById('checkout-modal'));
+            closeModal(document.getElementById('basket-modal'));
             alert('Заказ успешно оформлен!');
-            if (window.updateCartUI) window.updateCartUI();
         }
-        
     } catch(e) { 
-        console.error('Order creation error:', e);
-        alert('Ошибка при оформлении заказа: ' + e.message);
-        const submitBtn = document.querySelector('#checkout-form button[type="submit"]');
-        if (submitBtn) {
-            submitBtn.textContent = 'Подтвердить заказ';
-            submitBtn.disabled = false;
-        }
+        alert('Ошибка: ' + e.message); 
     }
 }
 
@@ -747,6 +715,97 @@ async function loadComponentsAdmin() {
       });
     });
   } catch(e) { console.error('Load components admin error:', e); }
+}
+
+async function loadPendingReviews() {
+    const token = getAuthToken();
+    if (!token) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/reviews/pending`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Ошибка загрузки');
+        const reviews = await response.json();
+        
+        const container = document.getElementById('pending-reviews-list');
+        if (!container) {
+            console.log('Контейнер pending-reviews-list не найден');
+            return;
+        }
+        
+        if (reviews.length === 0) {
+            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">✅ Нет отзывов на модерации</p>';
+            return;
+        }
+        
+        container.innerHTML = reviews.map(r => `
+            <div class="pending-review" data-id="${r.id}" style="border: 1px solid #eee; padding: 15px; margin-bottom: 10px; border-radius: 12px; background: #fff;">
+                <strong>👤 ${escapeHtml(r.authorName || 'Аноним')}</strong>
+                <small style="color: #888; margin-left: 10px;">${new Date(r.createdAt).toLocaleDateString()}</small>
+                <p style="margin: 10px 0; word-wrap: break-word;">${escapeHtml(r.text)}</p>
+                <div style="display: flex; gap: 10px;">
+                    <button class="approve-review-btn btn" data-id="${r.id}" style="background: #4caf50; padding: 6px 16px; font-size: 14px;">✅ Одобрить</button>
+                    <button class="delete-review-btn" data-id="${r.id}" style="background: #ff4757; padding: 6px 16px; font-size: 14px;">❌ Удалить</button>
+                </div>
+            </div>
+        `).join('');
+        
+        document.querySelectorAll('.approve-review-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const reviewId = btn.dataset.id;
+                if (confirm('Одобрить этот отзыв? Он сразу появится на сайте.')) {
+                    try {
+                        const approveResponse = await fetch(`${API_BASE}/reviews/${reviewId}/approve`, {
+                            method: 'PUT',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (approveResponse.ok) {
+                            alert('✅ Отзыв одобрен и опубликован!');
+                            loadPendingReviews();
+                            loadReviews();
+                        } else {
+                            alert('Ошибка при одобрении отзыва');
+                        }
+                    } catch(e) {
+                        alert('Ошибка: ' + e.message);
+                    }
+                }
+            });
+        });
+        
+        document.querySelectorAll('#pending-reviews-list .delete-review-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const reviewId = btn.dataset.id;
+                if (confirm('Удалить этот отзыв без публикации?')) {
+                    try {
+                        const deleteResponse = await fetch(`${API_BASE}/reviews/${reviewId}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (deleteResponse.ok) {
+                            alert('Отзыв удалён');
+                            loadPendingReviews();
+                        } else {
+                            alert('Ошибка при удалении');
+                        }
+                    } catch(e) {
+                        alert('Ошибка: ' + e.message);
+                    }
+                }
+            });
+        });
+        
+    } catch(e) {
+        console.error('Load pending reviews error:', e);
+        const container = document.getElementById('pending-reviews-list');
+        if (container) {
+            container.innerHTML = '<p style="color: #ff4757; padding: 20px;">❌ Ошибка загрузки отзывов на модерацию</p>';
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -833,7 +892,11 @@ document.addEventListener('DOMContentLoaded', () => {
   
   document.getElementById('profile-link-btn')?.addEventListener('click', () => window.location.href = 'profile.html');
   
-  document.getElementById('admin-panel-btn')?.addEventListener('click', () => { loadComponentsAdmin(); openModal(document.getElementById('admin-modal')); });
+  document.getElementById('admin-panel-btn')?.addEventListener('click', () => { 
+    loadComponentsAdmin();
+    loadPendingReviews();
+    openModal(document.getElementById('admin-modal')); 
+});
   
   document.getElementById('orders-btn')?.addEventListener('click', async () => {
     const modal = document.getElementById('orders-modal');
@@ -1000,4 +1063,89 @@ document.addEventListener('DOMContentLoaded', () => {
   if (new URLSearchParams(location.search).get('auth') === 'login') {
     setTimeout(() => { if (authModal) openModal(authModal); }, 150);
   }
+
+  let fillingCounter = 1;
+let cakeBaseCounter = 1;
+
+function addNewFilling() {
+    const container = document.getElementById('filling-container');
+    const newId = fillingCounter++;
+    const fillings = JSON.parse(safeLocalStorage.getItem('fillings') || '[]');
+    
+    const newDiv = document.createElement('div');
+    newDiv.className = 'form-group';
+    newDiv.id = `filling-group-${newId}`;
+    newDiv.innerHTML = `
+        <div class="form-row">
+            <select id="filling-${newId}" style="flex: 1;">
+                <option value="" disabled selected>Выберите начинку...</option>
+                ${fillings.map(f => `<option>${escapeHtml(f)}</option>`).join('')}
+            </select>
+            <button type="button" class="remove-option-btn" data-id="${newId}" style="width: 48px; height: 48px; border-radius: var(--border-radius-sm); background: #ff4757; color: white; border: none; cursor: pointer;">✕</button>
+        </div>
+    `;
+    container.appendChild(newDiv);
+    
+    newDiv.querySelector('.remove-option-btn').addEventListener('click', () => {
+        newDiv.remove();
+    });
+}
+
+function addNewCakeBase() {
+    const container = document.getElementById('cake-base-container');
+    const newId = cakeBaseCounter++;
+    const cakeBases = JSON.parse(safeLocalStorage.getItem('cakeBases') || '[]');
+    
+    const newDiv = document.createElement('div');
+    newDiv.className = 'form-group';
+    newDiv.id = `cakebase-group-${newId}`;
+    newDiv.innerHTML = `
+        <div class="form-row">
+            <select id="cake-base-${newId}" style="flex: 1;">
+                <option value="" disabled selected>Выберите бисквит...</option>
+                ${cakeBases.map(b => `<option>${escapeHtml(b)}</option>`).join('')}
+            </select>
+            <button type="button" class="remove-option-btn" data-id="${newId}" style="width: 48px; height: 48px; border-radius: var(--border-radius-sm); background: #ff4757; color: white; border: none; cursor: pointer;">✕</button>
+        </div>
+    `;
+    container.appendChild(newDiv);
+    
+    newDiv.querySelector('.remove-option-btn').addEventListener('click', () => {
+        newDiv.remove();
+    });
+}
+
+document.getElementById('add-filling-btn')?.addEventListener('click', addNewFilling);
+document.getElementById('add-cake-base-btn')?.addEventListener('click', addNewCakeBase);
+
+function updateConstructorSelects() {
+    const fillings = JSON.parse(safeLocalStorage.getItem('fillings') || '[]');
+    const cakeBases = JSON.parse(safeLocalStorage.getItem('cakeBases') || '[]');
+    
+    document.querySelectorAll('select[id^="filling-"]').forEach(select => {
+        const currentVal = select.value;
+        select.innerHTML = '<option value="" disabled selected>Выберите начинку...</option>' + 
+            fillings.map(o => `<option ${currentVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+    });
+    
+    document.querySelectorAll('select[id^="cake-base-"]').forEach(select => {
+        const currentVal = select.value;
+        select.innerHTML = '<option value="" disabled selected>Выберите бисквит...</option>' + 
+            cakeBases.map(o => `<option ${currentVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+    });
+}
+
+const originalLoadComponents = loadComponents;
+window.loadComponents = async function() {
+    try {
+        const [f,b] = await Promise.all([
+            fetch(`${API_BASE}/components/fillings`),
+            fetch(`${API_BASE}/components/cakeBases`)
+        ]);
+        const fillings = await f.json(), bases = await b.json();
+        safeLocalStorage.setItem('fillings', JSON.stringify(fillings.map(x=>x.name)));
+        safeLocalStorage.setItem('cakeBases', JSON.stringify(bases.map(x=>x.name)));
+        updateConstructorSelects(); // Теперь эта функция обновляет ВСЕ селекты
+    } catch(e) { console.error(e); }
+};
 });

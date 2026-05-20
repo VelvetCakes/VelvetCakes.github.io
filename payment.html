@@ -139,7 +139,6 @@
                 return;
             }
             
-            // Получаем информацию о заказе
             const response = await fetch(`${API_BASE}/orders/my`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -149,7 +148,6 @@
             if (order) {
                 document.getElementById('order-amount').textContent = `${order.totalAmount} ₽`;
                 
-                // Если заказ уже оплачен, скрываем кнопку оплаты
                 if (order.paidAmount > 0) {
                     document.getElementById('payment-status').innerHTML = `
                         <div class="status-success">✅ Заказ уже оплачен!</div>
@@ -170,7 +168,6 @@
         }
     }
     
-    // Обработка возврата после оплаты
     if (status === 'success') {
         document.getElementById('payment-status').innerHTML = `
             <div class="status-success">✅ Оплата успешно произведена!</div>
@@ -225,8 +222,42 @@
             document.getElementById('pay-button').textContent = '💳 Оплатить через ЮKassa';
         }
     });
+
+    async function checkOrderStatus(orderId) {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
     
+    try {
+        const response = await fetch(`${API_BASE}/orders/my`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const orders = await response.json();
+        const order = orders.find(o => o.id == orderId);
+        
+        if (order && order.status !== 'Ожидает оплаты') {
+            // Если заказ уже не ожидает оплаты, значит оплачен
+            document.getElementById('payment-status').innerHTML = `
+                <div class="status-success">✅ Заказ уже оплачен!</div>
+            `;
+            document.getElementById('pay-button').style.display = 'none';
+            
+            // Очищаем корзину, если она еще не очищена
+            const pendingCart = localStorage.getItem('pendingCart');
+            if (pendingCart) {
+                localStorage.setItem('cart', '[]');
+                localStorage.removeItem('pendingCart');
+                localStorage.removeItem('pendingOrderId');
+            }
+        }
+    } catch(e) {
+        console.error('Error checking order status:', e);
+    }
+}
+
+if (orderId) {
     loadOrderInfo();
+    checkOrderStatus(orderId);
+}
 </script>
 </body>
 </html>
