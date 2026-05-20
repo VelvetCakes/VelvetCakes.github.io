@@ -67,6 +67,10 @@
             background: #fafafa;
             border-radius: 16px;
         }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
     </style>
 </head>
 <body>
@@ -111,9 +115,15 @@
     const paymentId = urlParams.get('paymentId');
     const status = urlParams.get('status');
     
+    console.log('Payment page loaded, orderId:', orderId);
+    
     async function loadOrderInfo() {
         if (!orderId) {
             document.getElementById('order-id').textContent = 'Не указан';
+            document.getElementById('payment-status').innerHTML = `
+                <div class="status-error">❌ Не указан номер заказа</div>
+            `;
+            document.getElementById('pay-button').style.display = 'none';
             return;
         }
         
@@ -121,6 +131,15 @@
         
         try {
             const token = localStorage.getItem('authToken');
+            if (!token) {
+                document.getElementById('payment-status').innerHTML = `
+                    <div class="status-error">❌ Вы не авторизованы. <a href="index.html?auth=login">Войдите</a></div>
+                `;
+                document.getElementById('pay-button').style.display = 'none';
+                return;
+            }
+            
+            // Получаем информацию о заказе
             const response = await fetch(`${API_BASE}/orders/my`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -129,12 +148,29 @@
             
             if (order) {
                 document.getElementById('order-amount').textContent = `${order.totalAmount} ₽`;
+                
+                // Если заказ уже оплачен, скрываем кнопку оплаты
+                if (order.paidAmount > 0) {
+                    document.getElementById('payment-status').innerHTML = `
+                        <div class="status-success">✅ Заказ уже оплачен!</div>
+                    `;
+                    document.getElementById('pay-button').style.display = 'none';
+                }
+            } else {
+                document.getElementById('payment-status').innerHTML = `
+                    <div class="status-error">❌ Заказ не найден</div>
+                `;
+                document.getElementById('pay-button').style.display = 'none';
             }
         } catch(e) {
             console.error('Error loading order:', e);
+            document.getElementById('payment-status').innerHTML = `
+                <div class="status-error">❌ Ошибка загрузки заказа</div>
+            `;
         }
     }
     
+    // Обработка возврата после оплаты
     if (status === 'success') {
         document.getElementById('payment-status').innerHTML = `
             <div class="status-success">✅ Оплата успешно произведена!</div>
@@ -159,7 +195,10 @@
             document.getElementById('pay-button').disabled = true;
             document.getElementById('pay-button').textContent = '⏳ Создание платежа...';
             
-            const returnUrl = `${window.location.origin}/payment.html?orderId=${orderId}`;
+            const returnUrl = `${window.location.origin}/payment.html?orderId=${orderId}&status=success`;
+            
+            console.log('Creating payment for order:', orderId);
+            console.log('Return URL:', returnUrl);
             
             const response = await fetch(`${API_BASE}/orders/${orderId}/payment`, {
                 method: 'POST',
@@ -171,13 +210,16 @@
             });
             
             const data = await response.json();
+            console.log('Payment response:', data);
             
             if (response.ok && data.paymentUrl) {
+                // Перенаправляем на ЮKassa
                 window.location.href = data.paymentUrl;
             } else {
-                throw new Error(data.message || 'Ошибка создания платежа');
+                throw new Error(data.message || data.error || 'Ошибка создания платежа');
             }
         } catch(e) {
+            console.error('Payment error:', e);
             alert('Ошибка: ' + e.message);
             document.getElementById('pay-button').disabled = false;
             document.getElementById('pay-button').textContent = '💳 Оплатить через ЮKassa';

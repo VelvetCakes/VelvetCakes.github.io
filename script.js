@@ -542,84 +542,140 @@ async function markMessagesAsRead(chatId) {
 let currentCartTotal = 0;
 
 function setupCheckout() {
-  const deliveryType = document.getElementById('delivery-type');
-  const addressGroup = document.getElementById('address-group');
-  if (deliveryType) {
-    deliveryType.addEventListener('change', () => {
-      if (addressGroup) addressGroup.style.display = deliveryType.value === 'delivery' ? 'block' : 'none';
-      updateCheckoutTotal();
-    });
-  }
-  const form = document.getElementById('checkout-form');
-  if (form) form.addEventListener('submit', async (e) => { e.preventDefault(); await processOrder(); });
-  const dateInput = document.getElementById('checkout-delivery-date');
-  if (dateInput) {
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    dateInput.min = tomorrow.toISOString().split('T')[0];
-    dateInput.value = tomorrow.toISOString().split('T')[0];
-  }
+    const deliveryType = document.getElementById('delivery-type');
+    const addressGroup = document.getElementById('address-group');
+    
+    if (deliveryType) {
+        deliveryType.addEventListener('change', () => {
+            if (addressGroup) {
+                addressGroup.style.display = deliveryType.value === 'delivery' ? 'block' : 'none';
+            }
+            updateCheckoutTotal();
+        });
+    }
+    
+    const form = document.getElementById('checkout-form');
+    if (form) {
+        form.addEventListener('submit', async (e) => { 
+            e.preventDefault(); 
+            await processOrder(); 
+        });
+    }
+    
+    const dateInput = document.getElementById('checkout-delivery-date');
+    if (dateInput) {
+        const tomorrow = new Date(); 
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        dateInput.min = tomorrow.toISOString().split('T')[0];
+        dateInput.value = tomorrow.toISOString().split('T')[0];
+    }
 }
 
 function updateCheckoutTotal() {
-  const deliveryType = document.getElementById('delivery-type');
-  if (!deliveryType) return;
-  const subtotal = currentCartTotal;
-  const deliveryFee = deliveryType.value === 'delivery' ? 250 : 0;
-  const total = deliveryType.value === 'pickup' ? subtotal * 0.85 : subtotal + deliveryFee;
-  const subtotalEl = document.getElementById('checkout-subtotal');
-  const deliveryFeeItem = document.getElementById('delivery-fee-item');
-  const totalEl = document.getElementById('checkout-total');
-  if (subtotalEl) subtotalEl.textContent = `${Math.round(subtotal)} ₽`;
-  if (deliveryFeeItem) deliveryFeeItem.style.display = deliveryType.value === 'delivery' ? 'block' : 'none';
-  if (totalEl) totalEl.textContent = `${Math.round(total)} ₽`;
+    const deliveryType = document.getElementById('delivery-type');
+    if (!deliveryType) return;
+    
+    const subtotal = currentCartTotal;
+    const deliveryFee = deliveryType.value === 'delivery' ? 250 : 0;
+    const total = deliveryType.value === 'pickup' ? subtotal * 0.85 : subtotal + deliveryFee;
+    
+    const subtotalEl = document.getElementById('checkout-subtotal');
+    const deliveryFeeItem = document.getElementById('delivery-fee-item');
+    const totalEl = document.getElementById('checkout-total');
+    
+    if (subtotalEl) subtotalEl.textContent = `${Math.round(subtotal)} ₽`;
+    if (deliveryFeeItem) deliveryFeeItem.style.display = deliveryType.value === 'delivery' ? 'block' : 'none';
+    if (totalEl) totalEl.textContent = `${Math.round(total)} ₽`;
 }
 
 async function processOrder() {
-  const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
-  if (!user || user.role !== 'user') { alert('Войдите как клиент'); return; }
-  const deliveryType = document.getElementById('delivery-type').value;
-  const paymentMethod = document.getElementById('payment-method').value;
-  const deliveryDate = document.getElementById('checkout-delivery-date').value;
-  const comments = document.getElementById('order-comments').value;
-  let deliveryAddress = '';
-  if (deliveryType === 'delivery') {
-    deliveryAddress = document.getElementById('delivery-address').value.trim();
-    if (!deliveryAddress) { alert('Укажите адрес доставки'); return; }
-  }
-  if (!deliveryDate) { alert('Укажите дату'); return; }
-  let total = currentCartTotal;
-  if (deliveryType === 'pickup') total = total * 0.85;
-  else if (deliveryType === 'delivery') total = total + 250;
-  
-  try {
-    const response = await apiFetch('/orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        total: Math.round(total),
-        deliveryAddress: deliveryAddress || 'Самовывоз',
-        comments: comments,
-        deliveryDate: deliveryDate,
-        paymentMethod: paymentMethod,
-        items: cart.map(i => ({
-          productId: i.id <= 9000000 ? i.id : null,
-          name: i.name, description: i.desc, weight: parseFloat(i.weight) || 1, price: i.price, quantity: i.quantity || 1
-        }))
-      })
-    });
-    
-    cart = [];
-    safeLocalStorage.setItem('cart', '[]');
-    updateCartUI();
-    closeModal(document.getElementById('checkout-modal'));
-    closeModal(document.getElementById('basket-modal'));
-    
-    if (paymentMethod === 'online') {
-      alert('Заказ создан! Сейчас вы будете перенаправлены на страницу оплаты.');
-      window.location.href = `payment.html?orderId=${response.id}`;
-    } else {
-      alert('Заказ успешно оформлен!');
+    const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
+    if (!user || user.role !== 'user') { 
+        alert('Войдите как клиент'); 
+        return; 
     }
-  } catch(e) { alert('Ошибка: ' + e.message); }
+    
+    const deliveryType = document.getElementById('delivery-type').value;
+    const paymentMethod = document.getElementById('payment-method').value;
+    const deliveryDate = document.getElementById('checkout-delivery-date').value;
+    const comments = document.getElementById('order-comments').value;
+    let deliveryAddress = '';
+    
+    if (deliveryType === 'delivery') {
+        deliveryAddress = document.getElementById('delivery-address').value.trim();
+        if (!deliveryAddress) { 
+            alert('Укажите адрес доставки'); 
+            return; 
+        }
+    }
+    
+    if (!deliveryDate) { 
+        alert('Укажите дату'); 
+        return; 
+    }
+    
+    let total = currentCartTotal;
+    if (deliveryType === 'pickup') total = total * 0.85;
+    else if (deliveryType === 'delivery') total = total + 250;
+    
+    const selectedPaymentMethod = paymentMethod;
+    
+    try {
+        const submitBtn = document.querySelector('#checkout-form button[type="submit"]');
+        const originalText = submitBtn?.textContent || 'Подтвердить заказ';
+        if (submitBtn) {
+            submitBtn.textContent = '⏳ Создание заказа...';
+            submitBtn.disabled = true;
+        }
+        
+        // Создаем заказ
+        const response = await apiFetch('/orders', {
+            method: 'POST',
+            body: JSON.stringify({
+                total: Math.round(total),
+                deliveryAddress: deliveryAddress || 'Самовывоз',
+                comments: comments,
+                deliveryDate: deliveryDate,
+                paymentMethod: selectedPaymentMethod,
+                items: cart.map(i => ({
+                    productId: i.id <= 9000000 ? i.id : null,
+                    name: i.name, 
+                    description: i.desc, 
+                    weight: parseFloat(i.weight) || 1, 
+                    price: i.price, 
+                    quantity: i.quantity || 1
+                }))
+            })
+        });
+        
+        const order = response;
+        console.log('Order created:', order);
+        
+    
+        cart = [];
+        safeLocalStorage.setItem('cart', '[]');
+        updateCartUI();
+        
+        closeModal(document.getElementById('checkout-modal'));
+        closeModal(document.getElementById('basket-modal'));
+        
+        if (selectedPaymentMethod === 'online') {
+            console.log('Redirecting to payment page for order:', order.id);
+            window.location.href = `payment.html?orderId=${order.id}`;
+        } else {
+            alert('Заказ успешно оформлен!');
+            if (window.updateCartUI) window.updateCartUI();
+        }
+        
+    } catch(e) { 
+        console.error('Order creation error:', e);
+        alert('Ошибка при оформлении заказа: ' + e.message);
+        const submitBtn = document.querySelector('#checkout-form button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.textContent = 'Подтвердить заказ';
+            submitBtn.disabled = false;
+        }
+    }
 }
 
 function setupCatalogToggle() {
