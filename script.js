@@ -1146,28 +1146,95 @@ document.addEventListener('DOMContentLoaded', () => {
     openModal(modal);
   });
   
-  document.getElementById('login-submit')?.addEventListener('click', async () => {
+ document.getElementById('login-submit')?.addEventListener('click', async () => {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    
+    if (!email || !password) {
+        alert('Введите email и пароль');
+        return;
+    }
+    
     try {
-      const d = await apiFetch('/auth/login', { method:'POST', body: JSON.stringify({ email: document.getElementById('login-email').value.trim(), password: document.getElementById('login-password').value }) });
-      safeLocalStorage.setItem('authToken', d.token);
-      safeLocalStorage.setItem('user', JSON.stringify(d.user));
-      alert('Вход выполнен!');
-      closeModal(authModal);
-      updateAuthUI();
-      loadNotifications();
-      window.location.reload();
-    } catch(e) { alert(e.message); }
-  });
+        const d = await apiFetch('/auth/login', { 
+            method: 'POST', 
+            body: JSON.stringify({ email, password }) 
+        });
+        safeLocalStorage.setItem('authToken', d.token);
+        safeLocalStorage.setItem('user', JSON.stringify(d.user));
+        alert('Вход выполнен!');
+        closeModal(authModal);
+        updateAuthUI();
+        loadNotifications();
+        window.location.reload();
+    } catch(e) {
+        // Проверяем, ошибка ли из-за неподтверждённого email
+        if (e.message.includes('завершена') || e.message.includes('подтвердите')) {
+            const resendConfirm = confirm('Регистрация не завершена! Отправить письмо с подтверждением повторно?');
+            if (resendConfirm) {
+                try {
+                    const resendResponse = await apiFetch('/auth/resend-confirmation', {
+                        method: 'POST',
+                        body: JSON.stringify({ email: email })
+                    });
+                    if (resendResponse.success) {
+                        alert('Письмо с подтверждением отправлено повторно. Проверьте почту, чтобы завершить регистрацию.');
+                    } else {
+                        alert(resendResponse.message || 'Ошибка при отправке письма');
+                    }
+                } catch(err) {
+                    alert('Ошибка при отправке письма: ' + err.message);
+                }
+            }
+        } else {
+            alert(e.message);
+        }
+    }
+});
   
-  document.getElementById('register-submit')?.addEventListener('click', async () => {
+ document.getElementById('register-submit')?.addEventListener('click', async () => {
+    const name = document.getElementById('register-name').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+    
+    if (!name || !email || !password) {
+        alert('Заполните все поля');
+        return;
+    }
+    
+    if (password.length < 6) {
+        alert('Пароль должен содержать не менее 6 символов');
+        return;
+    }
+    
     try {
-      await apiFetch('/auth/register', { method:'POST', body: JSON.stringify({ name: document.getElementById('register-name').value.trim(), email: document.getElementById('register-email').value.trim(), password: document.getElementById('register-password').value }) });
-      alert('Регистрация успешна! Теперь войдите.');
-      document.querySelector('.auth-tab[data-tab="login"]').click();
-      document.getElementById('login-email').value = document.getElementById('register-email').value;
-      document.getElementById('login-password').focus();
-    } catch(e) { alert(e.message); }
-  });
+        const response = await apiFetch('/auth/register', { 
+            method: 'POST', 
+            body: JSON.stringify({ name, email, password }) 
+        });
+        
+        if (response.requiresConfirmation) {
+            alert(response.message);
+            // Очищаем форму регистрации
+            document.getElementById('register-name').value = '';
+            document.getElementById('register-email').value = '';
+            document.getElementById('register-password').value = '';
+            // Переключаем на форму входа с сообщением
+            document.querySelector('.auth-tab[data-tab="login"]').click();
+            document.getElementById('login-email').value = email;
+            alert('На почту ' + email + ' отправлено письмо с подтверждением. Перейдите по ссылке в письме, чтобы завершить регистрацию.');
+        } else if (response.emailError) {
+            alert('Ошибка: ' + response.message);
+        } else {
+            alert(response.message || 'Регистрация успешна! Теперь войдите.');
+            document.querySelector('.auth-tab[data-tab="login"]').click();
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-password').focus();
+        }
+    } catch(e) {
+        alert(e.message);
+    }
+});
   
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     ['authToken','user','cart'].forEach(k => safeLocalStorage.removeItem(k));

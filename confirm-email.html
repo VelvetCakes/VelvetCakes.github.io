@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Подтверждение email - Velvet</title>
+    <title>Подтверждение регистрации - Velvet</title>
     <link rel="stylesheet" href="style.css">
     <style>
         .confirm-container {
@@ -38,8 +38,8 @@
 </head>
 <body>
     <div class="confirm-container">
-        <h1>📧 Подтверждение email</h1>
-        <div id="message" class="loading">Подтверждение...</div>
+        <h1>📧 Подтверждение регистрации</h1>
+        <div id="message" class="loading">Завершение регистрации...</div>
         <div id="buttons" style="margin-top: 20px;"></div>
     </div>
     
@@ -67,12 +67,15 @@
                 
                 const data = await response.json();
                 
-                if (response.ok) {
-                    messageEl.innerHTML = '<p class="success">✅ ' + data.message + '</p><p>Теперь вы можете войти в свой аккаунт.</p>';
+                if (response.ok && data.success) {
+                    messageEl.innerHTML = '<p class="success">✅ ' + data.message + '</p>';
                     buttonsEl.innerHTML = `
-                        <a href="index.html" class="btn-primary">🏠 На главную</a>
-                        <a href="index.html?auth=login" class="btn-primary" style="margin-left: 10px;">🔑 Войти</a>
+                        <a href="index.html?auth=login" class="btn-primary">🔑 Войти в аккаунт</a>
                     `;
+                    // Автоматический редирект на страницу входа через 3 секунды
+                    setTimeout(() => {
+                        window.location.href = 'index.html?auth=login';
+                    }, 3000);
                 } else {
                     messageEl.innerHTML = '<p class="error">❌ ' + (data.message || 'Ошибка подтверждения') + '</p>';
                     buttonsEl.innerHTML = '<a href="index.html" class="btn-primary">На главную</a>';
