@@ -1192,47 +1192,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
   
- document.getElementById('register-submit')?.addEventListener('click', async () => {
-    const name = document.getElementById('register-name').value.trim();
-    const email = document.getElementById('register-email').value.trim();
-    const password = document.getElementById('register-password').value;
-    
-    if (!name || !email || !password) {
-        alert('Заполните все поля');
-        return;
-    }
-    
-    if (password.length < 6) {
-        alert('Пароль должен содержать не менее 6 символов');
-        return;
-    }
-    
+document.getElementById('register-submit')?.addEventListener('click', async () => {
     try {
-        const response = await apiFetch('/auth/register', { 
-            method: 'POST', 
-            body: JSON.stringify({ name, email, password }) 
+        await apiFetch('/auth/register', { 
+            method:'POST', 
+            body: JSON.stringify({ 
+                name: document.getElementById('register-name').value.trim(), 
+                email: document.getElementById('register-email').value.trim(), 
+                password: document.getElementById('register-password').value 
+            }) 
         });
-        
-        if (response.requiresConfirmation) {
-            alert(response.message);
-            // Очищаем форму регистрации
-            document.getElementById('register-name').value = '';
-            document.getElementById('register-email').value = '';
-            document.getElementById('register-password').value = '';
-            // Переключаем на форму входа с сообщением
-            document.querySelector('.auth-tab[data-tab="login"]').click();
-            document.getElementById('login-email').value = email;
-            alert('На почту ' + email + ' отправлено письмо с подтверждением. Перейдите по ссылке в письме, чтобы завершить регистрацию.');
-        } else if (response.emailError) {
-            alert('Ошибка: ' + response.message);
-        } else {
-            alert(response.message || 'Регистрация успешна! Теперь войдите.');
-            document.querySelector('.auth-tab[data-tab="login"]').click();
-            document.getElementById('login-email').value = email;
-            document.getElementById('login-password').focus();
-        }
-    } catch(e) {
-        alert(e.message);
+        alert('Регистрация успешна! Теперь войдите.');
+        document.querySelector('.auth-tab[data-tab="login"]').click();
+        document.getElementById('login-email').value = document.getElementById('register-email').value;
+        document.getElementById('login-password').focus();
+    } catch(e) { 
+        alert(e.message); 
     }
 });
   
