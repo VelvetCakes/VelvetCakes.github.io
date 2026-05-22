@@ -1,5 +1,8 @@
 const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
 
+window.openPaymentModal = openPaymentModal;
+window.closePaymentModal = closePaymentModal;
+
 const safeLocalStorage = {
   getItem(key) { try { return localStorage.getItem(key); } catch { return null; } },
   setItem(key, value) { try { localStorage.setItem(key, value); } catch {} },
@@ -795,7 +798,10 @@ function updateCheckoutTotal() {
 
 async function processOrder() {
     const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
-    if (!user || user.role !== 'user') { alert('Войдите как клиент'); return; }
+    if (!user || user.role !== 'user') { 
+        alert('Войдите как клиент'); 
+        return; 
+    }
     
     const deliveryType = document.getElementById('delivery-type').value;
     const paymentMethod = document.getElementById('payment-method').value;
@@ -805,55 +811,131 @@ async function processOrder() {
     let deliveryAddress = '';
     if (deliveryType === 'delivery') {
         deliveryAddress = document.getElementById('delivery-address').value.trim();
-        if (!deliveryAddress) { alert('Укажите адрес доставки'); return; }
+        if (!deliveryAddress) { 
+            alert('Укажите адрес доставки'); 
+            return; 
+        }
     }
-    if (!deliveryDate) { alert('Укажите дату'); return; }
+    if (!deliveryDate) { 
+        alert('Укажите дату'); 
+        return; 
+    }
     
     let total = currentCartTotal;
     if (deliveryType === 'pickup') total = total * 0.85;
     else if (deliveryType === 'delivery') total = total + 250;
     
-    try {
-        const response = await apiFetch('/orders', {
-            method: 'POST',
-            body: JSON.stringify({
-                total: Math.round(total),
-                deliveryAddress: deliveryAddress || 'Самовывоз',
-                comments: comments,
-                deliveryDate: deliveryDate,
-                paymentMethod: paymentMethod,
-                items: cart.map(i => ({
-                    productId: (i.id && i.id <= 9000000 && !i.isCustom) ? i.id : null,
-                    isCustom: i.isCustom || false,
-                    name: i.name,
-                    description: i.desc,
-                    weight: parseFloat(i.weight) || 1,
-                    price: i.price,
-                    quantity: i.quantity || 1,
-                    customData: i.customData || null
-                }))
-            })
-        });
+    if (paymentMethod === 'online') {
+        const orderData = {
+            total: Math.round(total),
+            deliveryAddress: deliveryAddress || 'Самовывоз',
+            comments: comments,
+            deliveryDate: deliveryDate,
+            paymentMethod: paymentMethod,
+            items: cart.map(i => ({
+                productId: (i.id && i.id <= 9000000 && !i.isCustom) ? i.id : null,
+                isCustom: i.isCustom || false,
+                name: i.name,
+                description: i.desc,
+                weight: parseFloat(i.weight) || 1,
+                price: i.price,
+                quantity: i.quantity || 1,
+                customData: i.customData || null
+            }))
+        };
         
-        const orderData = response;
-        const orderId = orderData.order?.id || orderData.id;
+        safeLocalStorage.setItem('pendingOrderData', JSON.stringify(orderData));
+        safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
         
-        if (paymentMethod === 'online') {
-            safeLocalStorage.setItem('pendingOrderId', orderId);
-            safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
+        closeModal(document.getElementById('checkout-modal'));
+        closeModal(document.getElementById('basket-modal'));
+        
+        openPaymentModal();
+    } else {
+        try {
+            const response = await apiFetch('/orders', {
+                method: 'POST',
+                body: JSON.stringify({
+                    total: Math.round(total),
+                    deliveryAddress: deliveryAddress || 'Самовывоз',
+                    comments: comments,
+                    deliveryDate: deliveryDate,
+                    paymentMethod: paymentMethod,
+                    items: cart.map(i => ({
+                        productId: (i.id && i.id <= 9000000 && !i.isCustom) ? i.id : null,
+                        isCustom: i.isCustom || false,
+                        name: i.name,
+                        description: i.desc,
+                        weight: parseFloat(i.weight) || 1,
+                        price: i.price,
+                        quantity: i.quantity || 1,
+                        customData: i.customData || null
+                    }))
+                })
+            });
             
-            alert('Заказ создан! Сейчас вы будете перенаправлены на страницу оплаты.');
-            window.location.href = `payment.html?orderId=${orderId}`;
-        } else {
             cart = [];
             safeLocalStorage.setItem('cart', '[]');
             updateCartUI();
             closeModal(document.getElementById('checkout-modal'));
             closeModal(document.getElementById('basket-modal'));
             alert('Заказ успешно оформлен!');
+        } catch(e) {
+            alert('Ошибка: ' + e.message);
         }
-    } catch(e) { 
-        alert('Ошибка: ' + e.message); 
+    }
+}
+
+function openPaymentModal() {
+    const modal = document.getElementById('payment-modal');
+    if (modal) {
+        modal.classList.add('active');
+        loadPaymentData();
+    } else {
+        console.error('Payment modal not found');
+    }
+}
+
+function closePaymentModal() {
+    const modal = document.getElementById('payment-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+function loadPaymentData() {
+    const orderDataStr = safeLocalStorage.getItem('pendingOrderData');
+    if (!orderDataStr) return;
+    
+    const orderData = JSON.parse(orderDataStr);
+    const cartItems = JSON.parse(safeLocalStorage.getItem('pendingCart') || '[]');
+    const total = orderData.total;
+    
+    const orderSummary = document.getElementById('payment-order-summary');
+    if (orderSummary) {
+        let itemsHtml = '<div style="margin-bottom: 15px;"><strong>Ваш заказ:</strong></div>';
+        cartItems.forEach(item => {
+            const qty = item.quantity || 1;
+            const itemTotal = (item.price || 0) * qty;
+            itemsHtml += `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>${escapeHtml(item.name)} × ${qty}</span>
+                    <span>${itemTotal.toFixed(0)} ₽</span>
+                </div>
+            `;
+        });
+        itemsHtml += `
+            <div style="display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; font-weight: bold;">
+                <span>Итого:</span>
+                <span style="color: var(--primary);">${total} ₽</span>
+            </div>
+        `;
+        orderSummary.innerHTML = itemsHtml;
+    }
+    
+    const sumInput = document.getElementById('payment-sum');
+    if (sumInput) {
+        sumInput.value = total;
     }
 }
 
