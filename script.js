@@ -825,64 +825,76 @@ async function processOrder() {
     if (deliveryType === 'pickup') total = total * 0.85;
     else if (deliveryType === 'delivery') total = total + 250;
     
-    if (paymentMethod === 'online') {
-        const orderData = {
-            total: Math.round(total),
-            deliveryAddress: deliveryAddress || 'Самовывоз',
-            comments: comments,
-            deliveryDate: deliveryDate,
-            paymentMethod: paymentMethod,
-            items: cart.map(i => ({
-                productId: (i.id && i.id <= 9000000 && !i.isCustom) ? i.id : null,
-                isCustom: i.isCustom || false,
-                name: i.name,
-                description: i.desc,
-                weight: parseFloat(i.weight) || 1,
-                price: i.price,
-                quantity: i.quantity || 1,
-                customData: i.customData || null
-            }))
-        };
+    const orderData = {
+        total: Math.round(total),
+        deliveryAddress: deliveryAddress || 'Самовывоз',
+        comments: comments,
+        deliveryDate: deliveryDate,
+        paymentMethod: paymentMethod,
+        items: cart.map(i => ({
+            productId: (i.id && i.id <= 9000000 && !i.isCustom) ? i.id : null,
+            isCustom: i.isCustom || false,
+            name: i.name,
+            description: i.desc,
+            weight: parseFloat(i.weight) || 1,
+            price: i.price,
+            quantity: i.quantity || 1,
+            customData: i.customData || null
+        }))
+    };
+    
+    try {
+        const response = await apiFetch('/orders', {
+            method: 'POST',
+            body: JSON.stringify(orderData)
+        });
         
-        safeLocalStorage.setItem('pendingOrderData', JSON.stringify(orderData));
-        safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
+        let orderId = null;
         
-        closeModal(document.getElementById('checkout-modal'));
-        closeModal(document.getElementById('basket-modal'));
-        
-        openPaymentModal();
-    } else {
-        try {
-            const response = await apiFetch('/orders', {
-                method: 'POST',
-                body: JSON.stringify({
-                    total: Math.round(total),
-                    deliveryAddress: deliveryAddress || 'Самовывоз',
-                    comments: comments,
-                    deliveryDate: deliveryDate,
-                    paymentMethod: paymentMethod,
-                    items: cart.map(i => ({
-                        productId: (i.id && i.id <= 9000000 && !i.isCustom) ? i.id : null,
-                        isCustom: i.isCustom || false,
-                        name: i.name,
-                        description: i.desc,
-                        weight: parseFloat(i.weight) || 1,
-                        price: i.price,
-                        quantity: i.quantity || 1,
-                        customData: i.customData || null
-                    }))
-                })
-            });
+        if (paymentMethod === 'online') {
+            // Для онлайн оплаты - сохраняем данные и переходим на страницу оплаты
+            if (response && response.id) {
+                orderId = response.id;
+            } else if (response && response.order && response.order.id) {
+                orderId = response.order.id;
+            } else {
+                // Если API вернул заказ в другом формате
+                orderId = response.id || (response.order ? response.order.id : null);
+            }
             
+            if (!orderId) {
+                console.error('Cannot get order ID from response:', response);
+                alert('Ошибка: не удалось получить ID заказа');
+                return;
+            }
+            
+            // Сохраняем данные для страницы оплаты
+            safeLocalStorage.setItem('pendingOrderData', JSON.stringify(orderData));
+            safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
+            safeLocalStorage.setItem('pendingOrderId', orderId);
+            
+            // Очищаем корзину
+            cart = [];
+            safeLocalStorage.setItem('cart', '[]');
+            updateCartUI();
+            
+            // Закрываем модальные окна
+            closeModal(document.getElementById('checkout-modal'));
+            closeModal(document.getElementById('basket-modal'));
+            
+            // Переходим на страницу оплаты
+            window.location.href = `payment.html?orderId=${orderId}`;
+        } else {
+            // Для оплаты при получении - просто очищаем корзину и показываем сообщение
             cart = [];
             safeLocalStorage.setItem('cart', '[]');
             updateCartUI();
             closeModal(document.getElementById('checkout-modal'));
             closeModal(document.getElementById('basket-modal'));
             alert('Заказ успешно оформлен!');
-        } catch(e) {
-            alert('Ошибка: ' + e.message);
         }
+    } catch(e) {
+        alert('Ошибка: ' + e.message);
     }
 }
 
