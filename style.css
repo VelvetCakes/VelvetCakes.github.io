@@ -1768,30 +1768,33 @@ footer p {
     background: transparent;
 }
 
-.popular-products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 30px;
+.popular-products-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .popular-card {
+    max-width: 400px;
+    width: 100%;
     background: white;
     border-radius: var(--border-radius);
     overflow: hidden;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
     transition: var(--transition);
     cursor: pointer;
     position: relative;
+    margin: 0 auto;
 }
 
 .popular-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
 }
 
 .popular-card img {
     width: 100%;
-    height: 250px;
+    height: 300px;
     object-fit: cover;
 }
 
@@ -1801,66 +1804,130 @@ footer p {
     left: 15px;
     background: linear-gradient(135deg, #ff6b6b, #ff4757);
     color: white;
-    padding: 6px 12px;
+    padding: 8px 16px;
     border-radius: 30px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.popular-badge span {
+    font-size: 16px;
 }
 
 .popular-card h3 {
-    font-size: 20px;
-    font-weight: 600;
-    margin: 15px 20px 8px;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 20px 25px 10px;
+    text-align: center;
 }
 
 .popular-card p {
     color: var(--text-secondary);
-    font-size: 14px;
-    margin: 0 20px 15px;
-    line-height: 1.4;
+    font-size: 15px;
+    margin: 0 25px 20px;
+    line-height: 1.5;
+    text-align: center;
 }
 
 .popular-card .price {
-    margin: 0 20px 20px;
-    font-size: 24px;
+    margin: 0 25px 20px;
+    font-size: 28px;
     font-weight: 700;
     color: var(--primary);
+    text-align: center;
 }
 
 .popular-card .btn {
-    margin: 0 20px 20px;
-    width: calc(100% - 40px);
+    margin: 0 25px 25px;
+    width: calc(100% - 50px);
+    padding: 14px;
+    font-size: 16px;
+}
+
+.popular-card .favorite-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    z-index: 10;
+    font-size: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.popular-card .favorite-btn:hover {
+    transform: scale(1.1);
+    background: #fff5f5;
+}
+
+.popular-card .favorite-btn.active {
+    background: #ff4757;
+    border-color: #ff4757;
+    color: white;
 }
 
 /* Скелетон загрузки */
 .skeleton {
     background: #f0f0f0;
-    border-radius: 16px;
+    border-radius: 24px;
     overflow: hidden;
 }
 
 .skeleton-img {
     width: 100%;
-    height: 250px;
+    height: 300px;
     background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
     background-size: 200% 100%;
     animation: skeleton-loading 1.5s infinite;
 }
 
 .skeleton-text {
-    height: 60px;
-    margin: 15px;
+    height: 24px;
+    margin: 20px 25px 15px;
     background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
     background-size: 200% 100%;
     animation: skeleton-loading 1.5s infinite;
     border-radius: 8px;
 }
 
+.skeleton-text.short {
+    width: 60%;
+    margin: 0 auto 20px;
+    height: 20px;
+}
+
 @keyframes skeleton-loading {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+}
+
+@media (max-width: 768px) {
+    .popular-card {
+        max-width: 350px;
+    }
+    
+    .popular-card img {
+        height: 250px;
+    }
+    
+    .popular-card h3 {
+        font-size: 20px;
+    }
+    
+    .popular-card .price {
+        font-size: 24px;
+    }
 }

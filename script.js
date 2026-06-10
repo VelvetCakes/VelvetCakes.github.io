@@ -146,6 +146,91 @@ async function loadReviews() {
   } catch(e) { console.error(e); }
 }
 
+// Загрузка популярного товара ("Выбор многих")
+async function loadPopularProducts() {
+    const container = document.getElementById('popular-product-container');
+    const skeleton = document.getElementById('popular-card-skeleton');
+    
+    if (!container) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/products/popular?limit=1`);
+        const products = await response.json();
+        
+        // Скрываем скелетон
+        if (skeleton) skeleton.style.display = 'none';
+        
+        if (!products || products.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Популярных товаров пока нет</p>';
+            container.style.display = 'block';
+            return;
+        }
+        
+        const product = products[0];
+        const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
+        const isUser = user?.role === 'user';
+        
+        container.innerHTML = `
+            <div class="popular-card" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-desc="${escapeHtml(product.description)}" data-price="${product.price}" data-img="${escapeHtml(product.imageUrl)}" data-weight="${escapeHtml(product.weight)}">
+                ${isUser ? `<button class="favorite-btn" data-id="${product.id}">🤍</button>` : ''}
+                <img src="${escapeHtml(product.imageUrl || 'image/image 13.png')}" alt="${escapeHtml(product.name)}" loading="lazy">
+                <div class="popular-badge">
+                </div>
+                <h3>${escapeHtml(product.name)}</h3>
+                <p>${escapeHtml(product.description || 'Нежный десерт, который выбирают чаще всего')}</p>
+                <div class="price">${product.price} ₽</div>
+                <button class="btn add-to-cart-popular">В корзину</button>
+            </div>
+        `;
+        container.style.display = 'block';
+        
+        // Добавляем обработчик клика на карточку
+        const card = container.querySelector('.popular-card');
+        if (card) {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                window.location.href = `product.html?id=${card.dataset.id}`;
+            });
+        }
+        
+        // Добавляем обработчик для кнопки "В корзину"
+        const addToCartBtn = container.querySelector('.add-to-cart-popular');
+        if (addToCartBtn) {
+            addToCartBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = e.target.closest('.popular-card');
+                addToCart({
+                    id: +card.dataset.id,
+                    name: card.dataset.name,
+                    desc: card.dataset.desc,
+                    price: +card.dataset.price,
+                    img: card.dataset.img,
+                    weight: card.dataset.weight
+                });
+            });
+        }
+        
+        // Добавляем обработчик для кнопки избранного
+        const favBtn = container.querySelector('.favorite-btn');
+        if (favBtn) {
+            favBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (favBtn.classList.contains('active')) {
+                    showToast('Товар уже в избранном');
+                } else {
+                    await addToFavorites(favBtn.dataset.id, favBtn);
+                }
+            });
+        }
+        
+    } catch(e) {
+        console.error('Error loading popular product:', e);
+        if (skeleton) skeleton.style.display = 'none';
+        container.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Не удалось загрузить популярный товар</p>';
+        container.style.display = 'block';
+    }
+}
+
 async function loadComponents() {
   try {
     const [f,b] = await Promise.all([
@@ -1147,6 +1232,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateAuthUI();
   updateCartUI();
   loadCatalog();
+  loadPopularProducts();
   loadReviews();
   loadComponents();
   loadNotifications();
