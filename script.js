@@ -129,7 +129,7 @@ async function loadCatalog() {
       data[c] = res.ok ? await res.json() : [];
     }
     safeLocalStorage.setItem('catalogData', JSON.stringify(data));
-    const active = document.getElementById('category-select')?.value || 'cheesecakes';
+    const active = document.getElementById('category-select')?.value || 'cakes';
     renderCatalog(active);
   } catch(e) {
     const grid = document.getElementById('catalog-grid');
@@ -157,7 +157,6 @@ async function loadPopularProducts() {
         const response = await fetch(`${API_BASE}/products/popular?limit=1`);
         const products = await response.json();
         
-        // Скрываем скелетон
         if (skeleton) skeleton.style.display = 'none';
         
         if (!products || products.length === 0) {
@@ -184,7 +183,6 @@ async function loadPopularProducts() {
         `;
         container.style.display = 'block';
         
-        // Добавляем обработчик клика на карточку
         const card = container.querySelector('.popular-card');
         if (card) {
             card.addEventListener('click', (e) => {
@@ -193,7 +191,6 @@ async function loadPopularProducts() {
             });
         }
         
-        // Добавляем обработчик для кнопки "В корзину"
         const addToCartBtn = container.querySelector('.add-to-cart-popular');
         if (addToCartBtn) {
             addToCartBtn.addEventListener('click', (e) => {
@@ -210,13 +207,12 @@ async function loadPopularProducts() {
             });
         }
         
-        // Добавляем обработчик для кнопки избранного
         const favBtn = container.querySelector('.favorite-btn');
         if (favBtn) {
             favBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if (favBtn.classList.contains('active')) {
-                    showToast('Товар уже в избранном');
+                    showToast('Товар уже в избранном', 'warning');
                 } else {
                     await addToFavorites(favBtn.dataset.id, favBtn);
                 }
@@ -249,7 +245,7 @@ async function addToFavorites(productId, btnElement) {
   const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
   
   if (!token || user.role !== 'user') {
-    showToast('Войдите как клиент, чтобы добавить в избранное');
+    showToast('Войдите как клиент, чтобы добавить в избранное', 'warning');
     return;
   }
   
@@ -263,21 +259,68 @@ async function addToFavorites(productId, btnElement) {
     if (response.ok) {
       btnElement.classList.add('active');
       btnElement.textContent = '❤️';
-      showToast('Добавлено в избранное');
+      showToast('Добавлено в избранное', 'success');
     } else if (response.status === 400) {
-      showToast('Товар уже в избранном');
+      showToast('Товар уже в избранном', 'warning');
     }
   } catch(e) {
-    showToast('Ошибка при добавлении');
+    showToast('Ошибка при добавлении', 'error');
   }
 }
 
-function showToast(message) {
-  const toast = document.createElement('div');
-  toast.textContent = message;
-  toast.style.cssText = 'position:fixed;bottom:100px;right:30px;background:#333;color:white;padding:12px 24px;border-radius:8px;z-index:2000;animation:fadeOut 2s forwards;';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2000);
+// Система тост-уведомлений
+function showToast(message, type = 'info', title = '') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    const titles = {
+        success: 'Успешно',
+        error: 'Ошибка',
+        warning: 'Внимание',
+        info: 'Уведомление'
+    };
+    
+    toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || icons.info}</div>
+        <div class="toast-content">
+            <div class="toast-title">${title || titles[type]}</div>
+            <div class="toast-message">${escapeHtml(message)}</div>
+        </div>
+        <button class="toast-close">×</button>
+        <div class="toast-progress"></div>
+    `;
+    
+    container.appendChild(toast);
+    toast.style.animation = 'toastSlideIn 0.3s ease forwards';
+    
+    const closeBtn = toast.querySelector('.toast-close');
+    closeBtn.addEventListener('click', () => {
+        removeToast(toast);
+    });
+    
+    setTimeout(() => {
+        removeToast(toast);
+    }, 3000);
+}
+
+function removeToast(toast) {
+    if (!toast.parentNode) return;
+    toast.style.animation = 'toastSlideOut 0.3s ease forwards';
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 300);
 }
 
 function renderCatalog(category) {
@@ -335,7 +378,7 @@ function attachCardEventListeners(grid) {
   grid.querySelectorAll('.favorite-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (btn.classList.contains('active')) showToast('Товар уже в избранном');
+      if (btn.classList.contains('active')) showToast('Товар уже в избранном', 'warning');
       else await addToFavorites(btn.dataset.id, btn);
     });
   });
@@ -362,7 +405,7 @@ function attachCardEventListeners(grid) {
         if (addBtn) addBtn.textContent = 'Обновить товар';
         openModal(document.getElementById('admin-modal'));
       } catch(err) {
-        alert('Ошибка загрузки товара: ' + err.message);
+        showToast('Ошибка загрузки товара: ' + err.message, 'error');
       }
     });
   });
@@ -374,9 +417,9 @@ function attachCardEventListeners(grid) {
         try {
           await apiFetch(`/products/${btn.dataset.id}`, { method: 'DELETE' });
           loadCatalog();
-          alert('Товар удалён');
+          showToast('Товар удалён', 'success');
         } catch(err) {
-          alert('Ошибка удаления: ' + err.message);
+          showToast('Ошибка удаления: ' + err.message, 'error');
         }
       }
     });
@@ -403,6 +446,7 @@ function renderReviews() {
       if (confirm('Удалить отзыв?')) {
         await apiFetch(`/reviews/${btn.dataset.id}`, { method: 'DELETE' });
         loadReviews();
+        showToast('Отзыв удалён', 'success');
       }
     });
   });
@@ -413,7 +457,6 @@ function renderReviews() {
 let fillingCounter = 1;
 let cakeBaseCounter = 1;
 
-// Стоимость компонентов
 const componentPrices = {
     fillings: {
         'Strawberry': 150,
@@ -431,14 +474,12 @@ const componentPrices = {
     }
 };
 
-// Функция для расчета общей стоимости
 function calculateTotalPrice() {
     const weight = parseFloat(document.getElementById('weight')?.value) || 1;
     const basePricePerKg = 950;
     
     const baseCost = weight * basePricePerKg;
     
-    // Стоимость выбранных бисквитов
     let cakeBaseCost = 0;
     const allCakeBases = document.querySelectorAll('select[id^="cake-base-"]');
     let hasCakeBase = false;
@@ -452,7 +493,6 @@ function calculateTotalPrice() {
         }
     });
     
-    // Стоимость выбранных начинок
     let fillingsCost = 0;
     const allFillings = document.querySelectorAll('select[id^="filling-"]');
     let hasFilling = false;
@@ -468,7 +508,6 @@ function calculateTotalPrice() {
     
     const total = baseCost + cakeBaseCost + fillingsCost;
     
-    // Обновляем отображение
     const cakeBaseCostEl = document.getElementById('cake-base-cost');
     const fillingsCostEl = document.getElementById('fillings-cost');
     const totalPriceEl = document.getElementById('total-price');
@@ -477,7 +516,6 @@ function calculateTotalPrice() {
     if (fillingsCostEl) fillingsCostEl.textContent = `${Math.round(fillingsCost)} ₽`;
     if (totalPriceEl) totalPriceEl.innerHTML = `${Math.round(total)} ₽`;
     
-    // Сохраняем состояние для валидации
     window.constructorState = {
         hasFilling,
         hasCakeBase,
@@ -488,7 +526,6 @@ function calculateTotalPrice() {
     return total;
 }
 
-// Функция валидации конструктора
 function validateConstructor() {
     const allFillings = document.querySelectorAll('select[id^="filling-"]');
     const allCakeBases = document.querySelectorAll('select[id^="cake-base-"]');
@@ -511,19 +548,18 @@ function validateConstructor() {
     });
     
     if (!hasValidFilling) {
-        showToast('❌ Пожалуйста, выберите хотя бы одну начинку для торта');
+        showToast('Пожалуйста, выберите хотя бы одну начинку для торта', 'warning');
         return false;
     }
     
     if (!hasValidCakeBase) {
-        showToast('❌ Пожалуйста, выберите хотя бы один бисквит для торта');
+        showToast('Пожалуйста, выберите хотя бы один бисквит для торта', 'warning');
         return false;
     }
     
     return true;
 }
 
-// Функция добавления новой начинки
 function addNewFilling() {
     const container = document.getElementById('filling-container');
     const newId = fillingCounter++;
@@ -552,7 +588,6 @@ function addNewFilling() {
     calculateTotalPrice();
 }
 
-// Функция добавления нового бисквита
 function addNewCakeBase() {
     const container = document.getElementById('cake-base-container');
     const newId = cakeBaseCounter++;
@@ -629,7 +664,7 @@ function addToCart(p) {
     
     safeLocalStorage.setItem('cart', JSON.stringify(cart));
     updateCartUI();
-    showToast(p.isCustom ? 'Индивидуальный торт добавлен в корзину!' : 'Товар добавлен в корзину');
+    showToast(p.isCustom ? 'Индивидуальный торт добавлен в корзину!' : 'Товар добавлен в корзину', 'success');
 }
 
 function setupSearch() {
@@ -884,7 +919,7 @@ function updateCheckoutTotal() {
 async function processOrder() {
     const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
     if (!user || user.role !== 'user') { 
-        alert('Войдите как клиент'); 
+        showToast('Войдите как клиент', 'warning');
         return; 
     }
     
@@ -897,12 +932,12 @@ async function processOrder() {
     if (deliveryType === 'delivery') {
         deliveryAddress = document.getElementById('delivery-address').value.trim();
         if (!deliveryAddress) { 
-            alert('Укажите адрес доставки'); 
+            showToast('Укажите адрес доставки', 'warning');
             return; 
         }
     }
     if (!deliveryDate) { 
-        alert('Укажите дату'); 
+        showToast('Укажите дату', 'warning');
         return; 
     }
     
@@ -937,49 +972,43 @@ async function processOrder() {
         let orderId = null;
         
         if (paymentMethod === 'online') {
-            // Для онлайн оплаты - сохраняем данные и переходим на страницу оплаты
             if (response && response.id) {
                 orderId = response.id;
             } else if (response && response.order && response.order.id) {
                 orderId = response.order.id;
             } else {
-                // Если API вернул заказ в другом формате
                 orderId = response.id || (response.order ? response.order.id : null);
             }
             
             if (!orderId) {
                 console.error('Cannot get order ID from response:', response);
-                alert('Ошибка: не удалось получить ID заказа');
+                showToast('Ошибка: не удалось получить ID заказа', 'error');
                 return;
             }
             
-            // Сохраняем данные для страницы оплаты
             safeLocalStorage.setItem('pendingOrderData', JSON.stringify(orderData));
             safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
             safeLocalStorage.setItem('pendingOrderId', orderId);
             
-            // Очищаем корзину
             cart = [];
             safeLocalStorage.setItem('cart', '[]');
             updateCartUI();
             
-            // Закрываем модальные окна
             closeModal(document.getElementById('checkout-modal'));
             closeModal(document.getElementById('basket-modal'));
             
-            // Переходим на страницу оплаты
+            showToast('Заказ создан! Перенаправление на оплату...', 'success');
             window.location.href = `payment.html?orderId=${orderId}`;
         } else {
-            // Для оплаты при получении - просто очищаем корзину и показываем сообщение
             cart = [];
             safeLocalStorage.setItem('cart', '[]');
             updateCartUI();
             closeModal(document.getElementById('checkout-modal'));
             closeModal(document.getElementById('basket-modal'));
-            alert('Заказ успешно оформлен!');
+            showToast('Заказ успешно оформлен!', 'success');
         }
     } catch(e) {
-        alert('Ошибка: ' + e.message);
+        showToast('Ошибка: ' + e.message, 'error');
     }
 }
 
@@ -1097,10 +1126,10 @@ async function loadComponentsAdmin() {
           try {
             const response = await fetch(`${API_BASE}/components/${componentId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
             if (!response.ok) throw new Error((await response.json()).message || 'Ошибка удаления');
-            alert(`${componentType} удалена!`);
+            showToast(`${componentType} удалена!`, 'success');
             loadComponentsAdmin();
             loadComponents();
-          } catch(e) { alert('Ошибка: ' + e.message); }
+          } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
         }
       });
     });
@@ -1153,14 +1182,14 @@ async function loadPendingReviews() {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                         if (approveResponse.ok) {
-                            alert('✅ Отзыв одобрен и опубликован!');
+                            showToast('Отзыв одобрен и опубликован!', 'success');
                             loadPendingReviews();
                             loadReviews();
                         } else {
-                            alert('Ошибка при одобрении отзыва');
+                            showToast('Ошибка при одобрении отзыва', 'error');
                         }
                     } catch(e) {
-                        alert('Ошибка: ' + e.message);
+                        showToast('Ошибка: ' + e.message, 'error');
                     }
                 }
             });
@@ -1177,13 +1206,13 @@ async function loadPendingReviews() {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                         if (deleteResponse.ok) {
-                            alert('Отзыв удалён');
+                            showToast('Отзыв удалён', 'success');
                             loadPendingReviews();
                         } else {
-                            alert('Ошибка при удалении');
+                            showToast('Ошибка при удалении', 'error');
                         }
                     } catch(e) {
-                        alert('Ошибка: ' + e.message);
+                        showToast('Ошибка: ' + e.message, 'error');
                     }
                 }
             });
@@ -1198,7 +1227,6 @@ async function loadPendingReviews() {
     }
 }
 
-// Инициализация конструктора
 function initConstructor() {
     document.getElementById('add-filling-btn')?.addEventListener('click', addNewFilling);
     document.getElementById('add-cake-base-btn')?.addEventListener('click', addNewCakeBase);
@@ -1277,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   document.getElementById('checkout-btn')?.addEventListener('click', () => {
-    if (!cart.length) { alert('Корзина пуста'); return; }
+    if (!cart.length) { showToast('Корзина пуста', 'warning'); return; }
     currentCartTotal = cart.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
     updateCheckoutTotal();
     openModal(document.getElementById('checkout-modal'));
@@ -1319,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const orders = await apiFetch('/orders');
         ordersList.innerHTML = orders.map(o => `<div class="card" style="margin-bottom:12px;padding:12px;border:1px solid #eee;border-radius:8px;"><strong>Заказ #${o.id}</strong> — ${o.status}<br>Сумма: ${o.totalAmount} ₽<br>Дата: ${o.desiredDeliveryDate}<br>Клиент: ${o.user?.fullName || o.user?.email || '—'}<br><select data-order="${o.id}" class="order-status-select" style="margin-top:8px;padding:4px;"><option value="Новый" ${o.status === 'Новый' ? 'selected' : ''}>Новый</option><option value="В работе" ${o.status === 'В работе' ? 'selected' : ''}>В работе</option><option value="Готов" ${o.status === 'Готов' ? 'selected' : ''}>Готов</option><option value="Доставлен" ${o.status === 'Доставлен' ? 'selected' : ''}>Доставлен</option></select></div>`).join('');
         document.querySelectorAll('.order-status-select').forEach(sel => {
-          sel.addEventListener('change', async (e) => { await apiFetch(`/orders/${sel.dataset.order}/status`, { method:'PUT', body: JSON.stringify({ status: e.target.value }) }); alert('Статус обновлён'); document.getElementById('orders-btn').click(); });
+          sel.addEventListener('change', async (e) => { await apiFetch(`/orders/${sel.dataset.order}/status`, { method:'PUT', body: JSON.stringify({ status: e.target.value }) }); showToast('Статус обновлён', 'success'); document.getElementById('orders-btn').click(); });
         });
       } catch(e) { ordersList.innerHTML = '<p>Ошибка загрузки</p>'; }
     }
@@ -1331,7 +1359,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = document.getElementById('login-password').value;
     
     if (!email || !password) {
-        alert('Введите email и пароль');
+        showToast('Введите email и пароль', 'warning');
         return;
     }
     
@@ -1342,13 +1370,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         safeLocalStorage.setItem('authToken', d.token);
         safeLocalStorage.setItem('user', JSON.stringify(d.user));
-        alert('Вход выполнен!');
+        showToast('Вход выполнен!', 'success');
         closeModal(authModal);
         updateAuthUI();
         loadNotifications();
         window.location.reload();
     } catch(e) {
-        // Проверяем, ошибка ли из-за неподтверждённого email
         if (e.message.includes('завершена') || e.message.includes('подтвердите')) {
             const resendConfirm = confirm('Регистрация не завершена! Отправить письмо с подтверждением повторно?');
             if (resendConfirm) {
@@ -1358,16 +1385,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: JSON.stringify({ email: email })
                     });
                     if (resendResponse.success) {
-                        alert('Письмо с подтверждением отправлено повторно. Проверьте почту, чтобы завершить регистрацию.');
+                        showToast('Письмо с подтверждением отправлено повторно. Проверьте почту.', 'success');
                     } else {
-                        alert(resendResponse.message || 'Ошибка при отправке письма');
+                        showToast(resendResponse.message || 'Ошибка при отправке письма', 'error');
                     }
                 } catch(err) {
-                    alert('Ошибка при отправке письма: ' + err.message);
+                    showToast('Ошибка при отправке письма: ' + err.message, 'error');
                 }
             }
         } else {
-            alert(e.message);
+            showToast(e.message, 'error');
         }
     }
 });
@@ -1382,12 +1409,12 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
                 password: document.getElementById('register-password').value 
             }) 
         });
-        alert('Регистрация успешна! Теперь войдите.');
+        showToast('Регистрация успешна! Теперь войдите.', 'success');
         document.querySelector('.auth-tab[data-tab="login"]').click();
         document.getElementById('login-email').value = document.getElementById('register-email').value;
         document.getElementById('login-password').focus();
     } catch(e) { 
-        alert(e.message); 
+        showToast(e.message, 'error');
     }
 });
   
@@ -1396,21 +1423,26 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
     cart = [];
     updateAuthUI();
     updateCartUI();
-    alert('Вы вышли');
+    showToast('Вы вышли из аккаунта', 'info');
     window.location.reload();
   });
   
   document.getElementById('submit-review')?.addEventListener('click', async () => {
     const name = document.getElementById('review-name').value.trim();
     const text = document.getElementById('review-text').value.trim();
-    if (!name||!text) return alert('Заполните поля');
+    if (!name||!text) {
+        showToast('Заполните поля', 'warning');
+        return;
+    }
     try {
       await apiFetch('/reviews', { method:'POST', body: JSON.stringify({ authorName: name, text }) });
       document.getElementById('review-name').value = '';
       document.getElementById('review-text').value = '';
       loadReviews();
-      alert('Отзыв добавлен');
-    } catch(e) { alert(e.message); }
+      showToast('Отзыв добавлен и отправлен на модерацию', 'success');
+    } catch(e) { 
+        showToast(e.message, 'error');
+    }
   });
   
   const addProductBtn = document.getElementById('add-product-btn');
@@ -1424,20 +1456,20 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
       const price = parseFloat(document.getElementById('admin-product-price').value);
       const weight = document.getElementById('admin-product-weight').value.trim();
       const category = document.getElementById('admin-product-category').value;
-      if (!name) { alert('Введите название товара'); return; }
-      if (isNaN(price) || price <= 0) { alert('Введите корректную цену'); return; }
+      if (!name) { showToast('Введите название товара', 'warning'); return; }
+      if (isNaN(price) || price <= 0) { showToast('Введите корректную цену', 'warning'); return; }
       const hasNewFile = fileInput && fileInput.files && fileInput.files.length > 0;
       if (hasNewFile) {
         const file = fileInput.files[0];
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) { alert('Неподдерживаемый формат файла'); return; }
-        if (file.size > 5 * 1024 * 1024) { alert('Файл слишком большой. Максимум 5 MB'); return; }
-        try { imageUrl = await uploadImage(file); } catch(err) { alert('Ошибка загрузки: ' + err.message); return; }
+        if (!allowedTypes.includes(file.type)) { showToast('Неподдерживаемый формат файла', 'warning'); return; }
+        if (file.size > 5 * 1024 * 1024) { showToast('Файл слишком большой. Максимум 5 MB', 'warning'); return; }
+        try { imageUrl = await uploadImage(file); } catch(err) { showToast('Ошибка загрузки: ' + err.message, 'error'); return; }
       }
       const product = { name, description, price, weight, category, imageUrl: imageUrl || null };
       try {
-        if (editId) { await apiFetch(`/products/${editId}`, { method: 'PUT', body: JSON.stringify(product) }); alert('Товар обновлён!'); document.getElementById('edit-product-id').value = ''; addProductBtn.textContent = 'Добавить товар'; }
-        else { await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }); alert('Товар добавлен!'); }
+        if (editId) { await apiFetch(`/products/${editId}`, { method: 'PUT', body: JSON.stringify(product) }); showToast('Товар обновлён!', 'success'); document.getElementById('edit-product-id').value = ''; addProductBtn.textContent = 'Добавить товар'; }
+        else { await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }); showToast('Товар добавлен!', 'success'); }
         document.getElementById('admin-product-name').value = '';
         document.getElementById('admin-product-desc').value = '';
         document.getElementById('admin-product-price').value = '';
@@ -1447,7 +1479,7 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
         if (document.getElementById('selected-image-preview')) document.getElementById('selected-image-preview').style.display = 'none';
         loadCatalog();
         closeModal(document.getElementById('admin-modal'));
-      } catch(err) { alert('Ошибка сохранения: ' + err.message); }
+      } catch(err) { showToast('Ошибка сохранения: ' + err.message, 'error'); }
     });
   }
   
@@ -1471,17 +1503,16 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
   
   document.getElementById('admin-add-filling-btn')?.addEventListener('click', async () => {
     const name = document.getElementById('new-filling-name').value.trim();
-    if (!name) return alert('Введите название');
-    try { await apiFetch('/components/fillings', { method:'POST', body: JSON.stringify({ name }) }); alert('Начинка добавлена'); document.getElementById('new-filling-name').value = ''; loadComponentsAdmin(); loadComponents(); } catch(e) { alert('Ошибка: ' + e.message); }
+    if (!name) { showToast('Введите название', 'warning'); return; }
+    try { await apiFetch('/components/fillings', { method:'POST', body: JSON.stringify({ name }) }); showToast('Начинка добавлена', 'success'); document.getElementById('new-filling-name').value = ''; loadComponentsAdmin(); loadComponents(); } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
   });
   
   document.getElementById('admin-add-cake-base-btn')?.addEventListener('click', async () => {
     const name = document.getElementById('new-cake-base-name').value.trim();
-    if (!name) return alert('Введите название');
-    try { await apiFetch('/components/cakeBases', { method:'POST', body: JSON.stringify({ name }) }); alert('Бисквит добавлен'); document.getElementById('new-cake-base-name').value = ''; loadComponentsAdmin(); loadComponents(); } catch(e) { alert('Ошибка: ' + e.message); }
+    if (!name) { showToast('Введите название', 'warning'); return; }
+    try { await apiFetch('/components/cakeBases', { method:'POST', body: JSON.stringify({ name }) }); showToast('Бисквит добавлен', 'success'); document.getElementById('new-cake-base-name').value = ''; loadComponentsAdmin(); loadComponents(); } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
   });
   
-  // НОВАЯ ЛОГИКА ДЛЯ КНОПКИ "В КОРЗИНУ" В КОНСТРУКТОРЕ
   document.getElementById('add-constructor-to-cart')?.addEventListener('click', () => {
     if (!validateConstructor()) return;
     
@@ -1489,11 +1520,10 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
     const deliveryDate = document.getElementById('delivery-date')?.value;
     
     if (!deliveryDate) {
-        showToast('❌ Укажите дату получения');
+        showToast('Укажите дату получения', 'warning');
         return;
     }
     
-    // Собираем выбранные начинки
     const selectedFillings = [];
     document.querySelectorAll('select[id^="filling-"]').forEach(select => {
         const value = select.value;
@@ -1502,7 +1532,6 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
         }
     });
     
-    // Собираем выбранные бисквиты
     const selectedCakeBases = [];
     document.querySelectorAll('select[id^="cake-base-"]').forEach(select => {
         const value = select.value;
