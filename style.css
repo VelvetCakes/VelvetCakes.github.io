@@ -1761,3 +1761,106 @@ footer p {
   .btn { padding: 12px 24px; font-size: 14px; }
   .cheesecakes-grid { grid-template-columns: 1fr; }
 }
+
+/* Раздел "Выбор многих" */
+.popular-products {
+    padding: 60px 0;
+    background: transparent;
+}
+
+.popular-products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 30px;
+}
+
+.popular-card {
+    background: white;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    transition: var(--transition);
+    cursor: pointer;
+    position: relative;
+}
+
+.popular-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.popular-card img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+}
+
+.popular-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: linear-gradient(135deg, #ff6b6b, #ff4757);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    z-index: 10;
+}
+
+.popular-card h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 15px 20px 8px;
+}
+
+.popular-card p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0 20px 15px;
+    line-height: 1.4;
+}
+
+.popular-card .price {
+    margin: 0 20px 20px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.popular-card .btn {
+    margin: 0 20px 20px;
+    width: calc(100% - 40px);
+}
+
+/* Скелетон загрузки */
+.skeleton {
+    background: #f0f0f0;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.skeleton-img {
+    width: 100%;
+    height: 250px;
+    background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+.skeleton-text {
+    height: 60px;
+    margin: 15px;
+    background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 8px;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
