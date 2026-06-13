@@ -47,19 +47,53 @@ async function apiFetch(url, options = {}) {
 
 async function uploadImage(file) {
     if (!file) return null;
+    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        showToast('Неподдерживаемый формат файла', 'warning');
+        return null;
+    }
+    
+    // Уменьшаем лимит до 2 MB для Base64 (так как Base64 увеличивает размер на ~33%)
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('Файл слишком большой. Максимум 2 MB для Base64 формата', 'warning');
+        return null;
+    }
+    
     const fd = new FormData();
     fd.append('file', file);
+    
     try {
+        showToast('Загрузка изображения...', 'info');
+        
+        const token = getAuthToken();
+        if (!token) {
+            showToast('Требуется авторизация', 'warning');
+            return null;
+        }
+        
         const res = await fetch(`${API_BASE}/products/upload-image`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
             body: fd
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Ошибка загрузки');
+        
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ error: 'Ошибка сервера' }));
+            throw new Error(errorData.error || `HTTP ${res.status}`);
+        }
+        
         const d = await res.json();
-        // Возвращаем data URL (Base64)
+        showToast('Изображение загружено!', 'success');
         return d.url;
-    } catch (e) { throw e; }
+        
+    } catch (e) {
+        console.error('Upload error:', e);
+        showToast('Ошибка загрузки: ' + e.message, 'error');
+        return null;
+    }
 }
 
 function openModal(el) { if (el) el.classList.add('active'); }
@@ -1514,8 +1548,26 @@ if (addProductBtn) {
             weight, 
             category, 
             imageUrl: imageUrl || null,
-            imageBase64: (imageUrl && imageUrl.startsWith('data:')) ? imageUrl : null
+            imageBase64: null
         };
+
+        if (imageUrl) {
+    if (imageUrl.startsWith('data:')) {
+        // Это Base64 изображение
+        product.imageBase64 = imageUrl;
+        console.log('Saving as Base64, length:', imageUrl.length);
+        
+        // Проверяем длину
+        if (imageUrl.length > 500000) {
+            showToast('Изображение слишком большое для сохранения в базе данных', 'warning');
+            return;
+        }
+    } else {
+        // Это обычный URL
+        product.imageUrl = imageUrl;
+        console.log('Saving as URL:', imageUrl);
+    }
+}
         
         try {
             let response;
