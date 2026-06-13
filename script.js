@@ -22,16 +22,24 @@ async function apiFetch(url, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   
   try {
+    console.log(`API Request: ${url}`, { method: options.method, body: options.body ? 'has body' : 'no body' });
+    
     const res = await fetch(`${API_BASE}${url}`, { ...options, headers });
+    
+    console.log(`API Response: ${res.status} ${res.statusText}`);
+    
     if (!res.ok) {
-      const err = await res.text().catch(() => 'Ошибка сервера');
-      throw new Error(`API ${res.status}: ${err}`);
+      const errText = await res.text();
+      console.error(`API Error ${res.status}:`, errText);
+      throw new Error(`API ${res.status}: ${errText.substring(0, 200)}`);
     }
+    
     const ct = res.headers.get('content-type');
     return ct?.includes('application/json') ? res.json() : res;
   } catch (e) {
+    console.error(`API Fetch Error: ${e.message}`);
     if (e.message.includes('fetch') || e.message.includes('Network')) {
-      throw new Error('Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на порту 5105.');
+      throw new Error('Не удалось подключиться к серверу');
     }
     throw e;
   }
@@ -1453,43 +1461,97 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
     }
   });
   
-  const addProductBtn = document.getElementById('add-product-btn');
-  if (addProductBtn) {
+ const addProductBtn = document.getElementById('add-product-btn');
+if (addProductBtn) {
     addProductBtn.addEventListener('click', async () => {
-      const editId = document.getElementById('edit-product-id').value;
-      const fileInput = document.getElementById('admin-product-img-file');
-      let imageUrl = document.getElementById('admin-product-img-url').value;
-      const name = document.getElementById('admin-product-name').value.trim();
-      const description = document.getElementById('admin-product-desc').value.trim();
-      const price = parseFloat(document.getElementById('admin-product-price').value);
-      const weight = document.getElementById('admin-product-weight').value.trim();
-      const category = document.getElementById('admin-product-category').value;
-      if (!name) { showToast('Введите название товара', 'warning'); return; }
-      if (isNaN(price) || price <= 0) { showToast('Введите корректную цену', 'warning'); return; }
-      const hasNewFile = fileInput && fileInput.files && fileInput.files.length > 0;
-      if (hasNewFile) {
-        const file = fileInput.files[0];
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) { showToast('Неподдерживаемый формат файла', 'warning'); return; }
-        if (file.size > 5 * 1024 * 1024) { showToast('Файл слишком большой. Максимум 5 MB', 'warning'); return; }
-        try { imageUrl = await uploadImage(file); } catch(err) { showToast('Ошибка загрузки: ' + err.message, 'error'); return; }
-      }
-      const product = { name, description, price, weight, category, imageUrl: imageUrl || null,  imageBase64: imageUrl && imageUrl.startsWith('data:') ? imageUrl : null};
-      try {
-        if (editId) { await apiFetch(`/products/${editId}`, { method: 'PUT', body: JSON.stringify(product) }); showToast('Товар обновлён!', 'success'); document.getElementById('edit-product-id').value = ''; addProductBtn.textContent = 'Добавить товар'; }
-        else { await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }); showToast('Товар добавлен!', 'success'); }
-        document.getElementById('admin-product-name').value = '';
-        document.getElementById('admin-product-desc').value = '';
-        document.getElementById('admin-product-price').value = '';
-        document.getElementById('admin-product-weight').value = '';
-        document.getElementById('admin-product-img-file').value = '';
-        document.getElementById('admin-product-img-url').value = '';
-        if (document.getElementById('selected-image-preview')) document.getElementById('selected-image-preview').style.display = 'none';
-        loadCatalog();
-        closeModal(document.getElementById('admin-modal'));
-      } catch(err) { showToast('Ошибка сохранения: ' + err.message, 'error'); }
+        const editId = document.getElementById('edit-product-id').value;
+        const fileInput = document.getElementById('admin-product-img-file');
+        let imageUrl = document.getElementById('admin-product-img-url').value;
+        const name = document.getElementById('admin-product-name').value.trim();
+        const description = document.getElementById('admin-product-desc').value.trim();
+        const price = parseFloat(document.getElementById('admin-product-price').value);
+        const weight = document.getElementById('admin-product-weight').value.trim();
+        const category = document.getElementById('admin-product-category').value;
+        
+        console.log('Saving product:', { editId, name, price, category });
+        
+        if (!name) { showToast('Введите название товара', 'warning'); return; }
+        if (isNaN(price) || price <= 0) { showToast('Введите корректную цену', 'warning'); return; }
+        
+        const hasNewFile = fileInput && fileInput.files && fileInput.files.length > 0;
+        
+        if (hasNewFile) {
+            const file = fileInput.files[0];
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) { 
+                showToast('Неподдерживаемый формат файла', 'warning'); 
+                return; 
+            }
+            if (file.size > 5 * 1024 * 1024) { 
+                showToast('Файл слишком большой. Максимум 5 MB', 'warning'); 
+                return; 
+            }
+            
+            showToast('Загрузка изображения...', 'info');
+            
+            try { 
+                imageUrl = await uploadImage(file); 
+                if (!imageUrl) {
+                    showToast('Не удалось загрузить изображение', 'error');
+                    return;
+                }
+                console.log('Image uploaded, URL length:', imageUrl.length);
+            } catch(err) { 
+                showToast('Ошибка загрузки: ' + err.message, 'error'); 
+                return; 
+            }
+        }
+        
+        const product = { 
+            name, 
+            description, 
+            price, 
+            weight, 
+            category, 
+            imageUrl: imageUrl || null,
+            imageBase64: (imageUrl && imageUrl.startsWith('data:')) ? imageUrl : null
+        };
+        
+        try {
+            let response;
+            if (editId) { 
+                console.log('Updating product...');
+                response = await apiFetch(`/products/${editId}`, { method: 'PUT', body: JSON.stringify(product) }); 
+                showToast('Товар обновлён!', 'success'); 
+                document.getElementById('edit-product-id').value = ''; 
+                addProductBtn.textContent = 'Добавить товар'; 
+            } else { 
+                console.log('Creating product...');
+                response = await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }); 
+                showToast('Товар добавлен!', 'success'); 
+            }
+            
+            console.log('Save response:', response);
+            
+            // Очищаем форму
+            document.getElementById('admin-product-name').value = '';
+            document.getElementById('admin-product-desc').value = '';
+            document.getElementById('admin-product-price').value = '';
+            document.getElementById('admin-product-weight').value = '';
+            document.getElementById('admin-product-img-file').value = '';
+            document.getElementById('admin-product-img-url').value = '';
+            if (document.getElementById('selected-image-preview')) {
+                document.getElementById('selected-image-preview').style.display = 'none';
+            }
+            
+            loadCatalog();
+            closeModal(document.getElementById('admin-modal'));
+        } catch(err) { 
+            console.error('Save error:', err);
+            showToast('Ошибка сохранения: ' + err.message, 'error'); 
+        }
     });
-  }
+}
   
   const selectImageBtn = document.getElementById('select-image-btn');
   const imageFileInput = document.getElementById('admin-product-img-file');
