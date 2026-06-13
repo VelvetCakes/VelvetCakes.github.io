@@ -38,19 +38,20 @@ async function apiFetch(url, options = {}) {
 }
 
 async function uploadImage(file) {
-  if (!file) return null;
-  const fd = new FormData();
-  fd.append('file', file);
-  try {
-    const res = await fetch(`${API_BASE}/products/upload-image`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${getAuthToken()}` },
-      body: fd
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Ошибка загрузки');
-    const d = await res.json();
-    return d.url;
-  } catch (e) { throw e; }
+    if (!file) return null;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+        const res = await fetch(`${API_BASE}/products/upload-image`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+            body: fd
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Ошибка загрузки');
+        const d = await res.json();
+        // Возвращаем data URL (Base64)
+        return d.url;
+    } catch (e) { throw e; }
 }
 
 function openModal(el) { if (el) el.classList.add('active'); }
@@ -169,10 +170,13 @@ async function loadPopularProducts() {
         const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
         const isUser = user?.role === 'user';
         
+        // Приоритет: ImageBase64, затем ImageUrl, затем заглушка
+        const imgSrc = product.imageBase64 || product.imageUrl || 'image/image 13.png';
+        
         container.innerHTML = `
-            <div class="popular-card" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-desc="${escapeHtml(product.description)}" data-price="${product.price}" data-img="${escapeHtml(product.imageUrl)}" data-weight="${escapeHtml(product.weight)}">
+            <div class="popular-card" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-desc="${escapeHtml(product.description)}" data-price="${product.price}" data-img="${imgSrc}" data-weight="${escapeHtml(product.weight)}">
                 ${isUser ? `<button class="favorite-btn" data-id="${product.id}">🤍</button>` : ''}
-                <img src="${escapeHtml(product.imageUrl || 'image/image 13.png')}" alt="${escapeHtml(product.name)}" loading="lazy">
+                <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" loading="lazy" onerror="this.onerror=null; this.src='image/image 13.png';">
                 <div class="popular-badge">
                 </div>
                 <h3>${escapeHtml(product.name)}</h3>
@@ -334,17 +338,21 @@ function renderCatalog(category) {
     const isMgr = user?.role === 'manager';
     const isUser = user?.role === 'user';
     
-    grid.innerHTML = items.map(p => `
-      <div class="cheesecake-card" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-desc="${escapeHtml(p.description)}" data-price="${p.price}" data-img="${escapeHtml(p.imageUrl)}" data-weight="${escapeHtml(p.weight)}">
-        <img src="${escapeHtml(p.imageUrl||'image/image 13.png')}" loading="lazy">
-        ${isUser ? `<button class="favorite-btn" data-id="${p.id}">🤍</button>` : ''}
-        ${isMgr ? `<button class="delete-product-btn" data-id="${p.id}">×</button><button class="edit-product-btn" data-id="${p.id}">✎</button>` : ''}
-        <h3>${escapeHtml(p.name)}</h3>
-        <p>${escapeHtml(p.description)}</p>
-        <div class="price-tag"><span class="weight-badge">${escapeHtml(p.weight)}</span><span class="price">${p.price} ₽</span></div>
-        <div class="card-actions"><button class="btn add-to-cart">В корзину</button></div>
-      </div>
-    `).join('');
+    grid.innerHTML = items.map(p => {
+        // Приоритет: ImageBase64 (если есть), затем ImageUrl, затем заглушка
+        const imgSrc = p.imageBase64 || p.imageUrl || 'image/image 13.png';
+        return `
+        <div class="cheesecake-card" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-desc="${escapeHtml(p.description)}" data-price="${p.price}" data-img="${imgSrc}" data-weight="${escapeHtml(p.weight)}">
+            <img src="${escapeHtml(imgSrc)}" loading="lazy" onerror="this.onerror=null; this.src='image/image 13.png';">
+            ${isUser ? `<button class="favorite-btn" data-id="${p.id}">🤍</button>` : ''}
+            ${isMgr ? `<button class="delete-product-btn" data-id="${p.id}">×</button><button class="edit-product-btn" data-id="${p.id}">✎</button>` : ''}
+            <h3>${escapeHtml(p.name)}</h3>
+            <p>${escapeHtml(p.description)}</p>
+            <div class="price-tag"><span class="weight-badge">${escapeHtml(p.weight)}</span><span class="price">${p.price} ₽</span></div>
+            <div class="card-actions"><button class="btn add-to-cart">В корзину</button></div>
+        </div>
+        `;
+    }).join('');
     
     attachCardEventListeners(grid);
   } catch(e) {
@@ -1466,7 +1474,7 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
         if (file.size > 5 * 1024 * 1024) { showToast('Файл слишком большой. Максимум 5 MB', 'warning'); return; }
         try { imageUrl = await uploadImage(file); } catch(err) { showToast('Ошибка загрузки: ' + err.message, 'error'); return; }
       }
-      const product = { name, description, price, weight, category, imageUrl: imageUrl || null };
+      const product = { name, description, price, weight, category, imageUrl: imageUrl || null,  imageBase64: imageUrl && imageUrl.startsWith('data:') ? imageUrl : null};
       try {
         if (editId) { await apiFetch(`/products/${editId}`, { method: 'PUT', body: JSON.stringify(product) }); showToast('Товар обновлён!', 'success'); document.getElementById('edit-product-id').value = ''; addProductBtn.textContent = 'Добавить товар'; }
         else { await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }); showToast('Товар добавлен!', 'success'); }
@@ -1550,7 +1558,7 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
         name: `Индивидуальный торт (${weight} кг)`,
         desc: description.substring(0, 200),
         price: totalPrice,
-        img: 'image/image 13.png',
+        img: 'image/image 14.png',
         weight: `${weight} кг`,
         isCustom: true,
         customData: {

@@ -19,8 +19,11 @@ async function loadProduct() {
     
     if (!product || !product.name) throw new Error('Некорректные данные товара');
     
+    // Приоритет: ImageBase64, затем ImageUrl, затем заглушка
+    const imgSrc = product.imageBase64 || product.imageUrl || 'image/image 13.png';
+    
     container.innerHTML = `
-      <img id="p-img" src="${escapeHtml(product.imageUrl || 'image/image 13.png')}" alt="${escapeHtml(product.name)}">
+      <img id="p-img" src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null; this.src='image/image 13.png';">
       <div>
         <h1 id="p-name">${escapeHtml(product.name)}</h1>
         <p id="p-desc" style="color:var(--text-secondary);margin:12px 0">${escapeHtml(product.description || '')}</p>
@@ -37,21 +40,21 @@ async function loadProduct() {
       const cart = JSON.parse(localStorage.getItem('cart') || '[]');
       const ex = cart.find(i => i.id === product.id);
       if (ex) ex.quantity = (ex.quantity || 0) + 1;
-      else cart.push({ id: product.id, name: product.name, desc: product.description || '', price: product.price, img: product.imageUrl || 'image/image 13.png', weight: product.weight || '', quantity: 1 });
+      else cart.push({ id: product.id, name: product.name, desc: product.description || '', price: product.price, img: imgSrc, weight: product.weight || '', quantity: 1 });
       localStorage.setItem('cart', JSON.stringify(cart));
-      alert('Добавлено в корзину!');
+      showToast('Добавлено в корзину!', 'success');
       if (window.opener && window.opener.updateCartUI) window.opener.updateCartUI();
     };
     
     const favBtn = document.getElementById('add-fav');
     favBtn.onclick = async () => {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) { alert('Войдите в аккаунт, чтобы добавить в избранное'); return; }
+      if (!token) { showToast('Войдите в аккаунт, чтобы добавить в избранное', 'warning'); return; }
       try {
         const res = await fetch(`${API_BASE}/api/favorites`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(product.id) });
-        if (res.ok) { favBtn.style.background = '#ffe6ee'; favBtn.textContent = '❤️ В избранном'; favBtn.disabled = true; }
-        else { const err = await res.text(); alert(err === 'Уже в избранном' ? 'Товар уже в избранном' : 'Ошибка'); }
-      } catch(e) { alert('Ошибка: ' + e.message); }
+        if (res.ok) { favBtn.style.background = '#ffe6ee'; favBtn.textContent = '❤️ В избранном'; favBtn.disabled = true; showToast('Добавлено в избранное', 'success'); }
+        else { const err = await res.text(); showToast(err === 'Уже в избранном' ? 'Товар уже в избранном' : 'Ошибка', 'warning'); }
+      } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
     };
     
   } catch (error) {
