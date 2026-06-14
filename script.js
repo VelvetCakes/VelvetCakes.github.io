@@ -22,22 +22,30 @@ async function apiFetch(url, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   
   try {
-    console.log(`API Request: ${url}`, { method: options.method, body: options.body ? 'has body' : 'no body' });
-    
     const res = await fetch(`${API_BASE}${url}`, { ...options, headers });
     
-    console.log(`API Response: ${res.status} ${res.statusText}`);
-    
     if (!res.ok) {
-      const errText = await res.text();
-      console.error(`API Error ${res.status}:`, errText);
-      throw new Error(`API ${res.status}: ${errText.substring(0, 200)}`);
+      let errorMessage = '';
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.message || errorData.error || errorData.title;
+      } catch {
+        errorMessage = await res.text().catch(() => 'Ошибка сервера');
+      }
+      
+      // Очищаем сообщение от технической информации
+      errorMessage = errorMessage
+        .replace(/API \d+: /, '')
+        .replace(/^"|"$/g, '')
+        .replace(/\\n/g, ' ')
+        .trim();
+      
+      throw new Error(errorMessage || `Ошибка ${res.status}`);
     }
     
     const ct = res.headers.get('content-type');
     return ct?.includes('application/json') ? res.json() : res;
   } catch (e) {
-    console.error(`API Fetch Error: ${e.message}`);
     if (e.message.includes('fetch') || e.message.includes('Network')) {
       throw new Error('Не удалось подключиться к серверу');
     }
@@ -54,9 +62,8 @@ async function uploadImage(file) {
         return null;
     }
     
-    // Уменьшаем лимит до 2 MB для Base64 (так как Base64 увеличивает размер на ~33%)
-    if (file.size > 2 * 1024 * 1024) {
-        showToast('Файл слишком большой. Максимум 2 MB для Base64 формата', 'warning');
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('Файл слишком большой. Максимум 5 MB', 'warning');
         return null;
     }
     
@@ -64,8 +71,6 @@ async function uploadImage(file) {
     fd.append('file', file);
     
     try {
-        showToast('Загрузка изображения...', 'info');
-        
         const token = getAuthToken();
         if (!token) {
             showToast('Требуется авторизация', 'warning');
@@ -211,16 +216,13 @@ async function loadPopularProducts() {
         const product = products[0];
         const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
         const isUser = user?.role === 'user';
-        
-        // Приоритет: ImageBase64, затем ImageUrl, затем заглушка
         const imgSrc = product.imageBase64 || product.imageUrl || 'image/image 13.png';
         
         container.innerHTML = `
             <div class="popular-card" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-desc="${escapeHtml(product.description)}" data-price="${product.price}" data-img="${imgSrc}" data-weight="${escapeHtml(product.weight)}">
                 ${isUser ? `<button class="favorite-btn" data-id="${product.id}">🤍</button>` : ''}
                 <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" loading="lazy" onerror="this.onerror=null; this.src='image/image 13.png';">
-                <div class="popular-badge">
-                </div>
+                <div class="popular-badge"></div>
                 <h3>${escapeHtml(product.name)}</h3>
                 <p>${escapeHtml(product.description || 'Нежный десерт, который выбирают чаще всего')}</p>
                 <div class="price">${product.price} ₽</div>
@@ -381,7 +383,6 @@ function renderCatalog(category) {
     const isUser = user?.role === 'user';
     
     grid.innerHTML = items.map(p => {
-        // Приоритет: ImageBase64 (если есть), затем ImageUrl, затем заглушка
         const imgSrc = p.imageBase64 || p.imageUrl || 'image/image 13.png';
         return `
         <div class="cheesecake-card" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-desc="${escapeHtml(p.description)}" data-price="${p.price}" data-img="${imgSrc}" data-weight="${escapeHtml(p.weight)}">
@@ -1116,39 +1117,73 @@ function loadPaymentData() {
 }
 
 function setupCatalogToggle() {
-  const catalogSection = document.querySelector('.catalog');
-  if (!catalogSection) return;
-  if (document.querySelector('.catalog-toggle-container')) return;
-  const toggleContainer = document.createElement('div');
-  toggleContainer.className = 'catalog-toggle-container';
-  const toggleBtn = document.createElement('button');
-  toggleBtn.className = 'catalog-toggle-btn';
-  toggleBtn.innerHTML = `<span class="toggle-text">Показать больше</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
-  const grid = document.getElementById('catalog-grid');
-  let isExpanded = true;
-  if (grid && grid.parentNode && !grid.parentNode.classList.contains('catalog-grid-wrapper')) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'catalog-grid-wrapper';
-    wrapper.style.cssText = 'transition: max-height 0.3s ease-out; overflow: hidden; max-height: none;';
-    grid.parentNode.insertBefore(wrapper, grid);
-    wrapper.appendChild(grid);
-    setTimeout(() => {
-      const items = grid.querySelectorAll('.cheesecake-card');
-      if (items.length > 6) {
-        wrapper.parentNode.insertBefore(toggleContainer, wrapper.nextSibling);
-        toggleContainer.appendChild(toggleBtn);
-        wrapper.style.maxHeight = wrapper.scrollHeight + 'px';
-        isExpanded = true;
-        toggleBtn.querySelector('.toggle-text').textContent = 'Свернуть';
-        toggleBtn.querySelector('svg').style.transform = 'rotate(180deg)';
-        toggleBtn.addEventListener('click', () => {
-          if (isExpanded) { wrapper.style.maxHeight = '600px'; toggleBtn.querySelector('.toggle-text').textContent = 'Показать все'; toggleBtn.querySelector('svg').style.transform = 'rotate(0deg)'; }
-          else { wrapper.style.maxHeight = wrapper.scrollHeight + 'px'; toggleBtn.querySelector('.toggle-text').textContent = 'Свернуть'; toggleBtn.querySelector('svg').style.transform = 'rotate(180deg)'; }
-          isExpanded = !isExpanded;
-        });
-      }
-    }, 100);
-  }
+    const grid = document.getElementById('catalog-grid');
+    if (!grid) return;
+    
+    // Создаём контейнер для обёртки, если его нет
+    let wrapper = grid.parentElement;
+    if (!wrapper.classList.contains('catalog-grid-wrapper')) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'catalog-grid-wrapper';
+        wrapper.style.cssText = 'transition: max-height 0.3s ease-out; overflow: hidden; max-height: none;';
+        grid.parentNode.insertBefore(wrapper, grid);
+        wrapper.appendChild(grid);
+    }
+    
+    function updateToggleButton() {
+        const items = grid.querySelectorAll('.cheesecake-card');
+        const needToggle = items.length > 3;
+        
+        let toggleContainer = document.querySelector('.catalog-toggle-container');
+        
+        if (needToggle) {
+            if (!toggleContainer) {
+                toggleContainer = document.createElement('div');
+                toggleContainer.className = 'catalog-toggle-container';
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'catalog-toggle-btn';
+                toggleBtn.innerHTML = `<span class="toggle-text">Показать все</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+                toggleContainer.appendChild(toggleBtn);
+                wrapper.parentNode.insertBefore(toggleContainer, wrapper.nextSibling);
+                
+                let isExpanded = false;
+                
+                setTimeout(() => {
+                    const cardHeight = items[0]?.offsetHeight || 400;
+                    wrapper.style.maxHeight = `${cardHeight * 2 + 30}px`;
+                    isExpanded = false;
+                    toggleBtn.querySelector('.toggle-text').textContent = 'Показать все';
+                    toggleBtn.querySelector('svg').style.transform = 'rotate(0deg)';
+                }, 100);
+                
+                toggleBtn.addEventListener('click', () => {
+                    if (isExpanded) {
+                        const cardHeight = items[0]?.offsetHeight || 400;
+                        wrapper.style.maxHeight = `${cardHeight * 2 + 30}px`;
+                        toggleBtn.querySelector('.toggle-text').textContent = 'Показать все';
+                        toggleBtn.querySelector('svg').style.transform = 'rotate(0deg)';
+                    } else {
+                        wrapper.style.maxHeight = wrapper.scrollHeight + 'px';
+                        toggleBtn.querySelector('.toggle-text').textContent = 'Свернуть';
+                        toggleBtn.querySelector('svg').style.transform = 'rotate(180deg)';
+                    }
+                    isExpanded = !isExpanded;
+                });
+            }
+        } else {
+            if (toggleContainer) {
+                toggleContainer.remove();
+            }
+            wrapper.style.maxHeight = 'none';
+        }
+    }
+    
+    const observer = new MutationObserver(() => {
+        setTimeout(updateToggleButton, 100);
+    });
+    observer.observe(grid, { childList: true, subtree: true });
+    
+    setTimeout(updateToggleButton, 100);
 }
 
 async function loadComponentsAdmin() {
@@ -1389,20 +1424,91 @@ document.addEventListener('DOMContentLoaded', () => {
     openModal(document.getElementById('admin-modal')); 
 });
   
-  document.getElementById('orders-btn')?.addEventListener('click', async () => {
+ document.getElementById('orders-btn')?.addEventListener('click', async () => {
     const modal = document.getElementById('orders-modal');
     const ordersList = document.getElementById('orders-list');
     if (ordersList) {
       try {
         const orders = await apiFetch('/orders');
-        ordersList.innerHTML = orders.map(o => `<div class="card" style="margin-bottom:12px;padding:12px;border:1px solid #eee;border-radius:8px;"><strong>Заказ #${o.id}</strong> — ${o.status}<br>Сумма: ${o.totalAmount} ₽<br>Дата: ${o.desiredDeliveryDate}<br>Клиент: ${o.user?.fullName || o.user?.email || '—'}<br><select data-order="${o.id}" class="order-status-select" style="margin-top:8px;padding:4px;"><option value="Новый" ${o.status === 'Новый' ? 'selected' : ''}>Новый</option><option value="В работе" ${o.status === 'В работе' ? 'selected' : ''}>В работе</option><option value="Готов" ${o.status === 'Готов' ? 'selected' : ''}>Готов</option><option value="Доставлен" ${o.status === 'Доставлен' ? 'selected' : ''}>Доставлен</option></select></div>`).join('');
+        console.log('Orders loaded:', orders);
+        
+        if (!orders || orders.length === 0) {
+          ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #888;">Заказов пока нет</p>';
+        } else {
+          ordersList.innerHTML = orders.map(order => {
+            // Формируем список товаров в заказе
+            let itemsHtml = '';
+            if (order.orderItems && order.orderItems.length > 0) {
+              itemsHtml = '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;"><strong>Состав заказа:</strong><ul style="margin-top: 8px; margin-left: 20px;">';
+              order.orderItems.forEach(item => {
+                const itemName = item.product?.name || item.customCake?.name || 'Индивидуальный торт';
+                itemsHtml += `<li>${escapeHtml(itemName)} × ${item.quantity} — ${item.unitPrice} ₽</li>`;
+              });
+              itemsHtml += '</ul></div>';
+            } else {
+              itemsHtml = '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; color: #888;">Состав заказа не указан</div>';
+            }
+            
+            return `
+              <div class="card" style="margin-bottom: 16px; padding: 16px; border: 1px solid #eee; border-radius: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                  <strong style="font-size: 16px;">Заказ #${order.id}</strong>
+                  <span class="order-status status-${getStatusClass(order.status)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px;">${order.status}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+                  <span><strong>Сумма:</strong> ${order.totalAmount} ₽</span>
+                  <span><strong>Дата получения:</strong> ${order.desiredDeliveryDate}</span>
+                </div>
+                <div><strong>Способ оплаты:</strong> ${order.paymentMethod || 'Картой при получении'}</div>
+                ${order.deliveryAddress && order.deliveryAddress !== 'Самовывоз' ? `<div><strong>Адрес доставки:</strong> ${escapeHtml(order.deliveryAddress)}</div>` : '<div><strong>Самовывоз</strong></div>'}
+                ${order.comments ? `<div><strong>Комментарий:</strong> ${escapeHtml(order.comments)}</div>` : ''}
+                ${itemsHtml}
+                <select data-order="${order.id}" class="order-status-select" style="margin-top: 12px; padding: 6px 12px; border-radius: 8px; border: 1px solid #ddd; width: 100%; max-width: 200px;">
+                  <option value="Новый" ${order.status === 'Новый' ? 'selected' : ''}>Новый</option>
+                  <option value="В работе" ${order.status === 'В работе' ? 'selected' : ''}>В работе</option>
+                  <option value="Готов" ${order.status === 'Готов' ? 'selected' : ''}>Готов</option>
+                  <option value="Доставлен" ${order.status === 'Доставлен' ? 'selected' : ''}>Доставлен</option>
+                </select>
+              </div>
+            `;
+          }).join('');
+        }
+        
+        // Добавляем обработчики для изменения статуса
         document.querySelectorAll('.order-status-select').forEach(sel => {
-          sel.addEventListener('change', async (e) => { await apiFetch(`/orders/${sel.dataset.order}/status`, { method:'PUT', body: JSON.stringify({ status: e.target.value }) }); showToast('Статус обновлён', 'success'); document.getElementById('orders-btn').click(); });
+          sel.addEventListener('change', async (e) => {
+            try {
+              await apiFetch(`/orders/${sel.dataset.order}/status`, { 
+                method: 'PUT', 
+                body: JSON.stringify({ status: e.target.value }) 
+              });
+              showToast('Статус заказа обновлён', 'success');
+              // Обновляем список заказов
+              document.getElementById('orders-btn').click();
+            } catch(err) {
+              showToast('Ошибка обновления статуса: ' + err.message, 'error');
+            }
+          });
         });
-      } catch(e) { ordersList.innerHTML = '<p>Ошибка загрузки</p>'; }
+        
+      } catch(e) { 
+        console.error('Orders load error:', e);
+        ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #ff4757;">❌ Ошибка загрузки заказов</p>'; 
+      }
     }
     openModal(modal);
-  });
+});
+
+function getStatusClass(status) {
+    const statusMap = {
+        'Новый': 'new',
+        'В работе': 'work',
+        'Готов': 'ready',
+        'Доставлен': 'delivered',
+        'Ожидает оплаты': 'new'
+    };
+    return statusMap[status] || 'new';
+}
   
  document.getElementById('login-submit')?.addEventListener('click', async () => {
     const email = document.getElementById('login-email').value.trim();
@@ -1426,7 +1532,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadNotifications();
         window.location.reload();
     } catch(e) {
-        if (e.message.includes('завершена') || e.message.includes('подтвердите')) {
+        let errorMsg = e.message;
+        errorMsg = errorMsg.replace(/API \d+: /, '');
+        
+        if (errorMsg.includes('завершена') || errorMsg.includes('подтвердите')) {
             const resendConfirm = confirm('Регистрация не завершена! Отправить письмо с подтверждением повторно?');
             if (resendConfirm) {
                 try {
@@ -1444,7 +1553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else {
-            showToast(e.message, 'error');
+            showToast(errorMsg, 'error');
         }
     }
 });
@@ -1464,7 +1573,9 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
         document.getElementById('login-email').value = document.getElementById('register-email').value;
         document.getElementById('login-password').focus();
     } catch(e) { 
-        showToast(e.message, 'error');
+        let errorMsg = e.message;
+        errorMsg = errorMsg.replace(/API \d+: /, '');
+        showToast(errorMsg, 'error');
     }
 });
   
@@ -1491,119 +1602,101 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
       loadReviews();
       showToast('Отзыв добавлен и отправлен на модерацию', 'success');
     } catch(e) { 
-        showToast(e.message, 'error');
+        let errorMsg = e.message;
+        errorMsg = errorMsg.replace(/API \d+: /, '');
+        showToast(errorMsg, 'error');
     }
   });
   
- const addProductBtn = document.getElementById('add-product-btn');
-if (addProductBtn) {
+  const addProductBtn = document.getElementById('add-product-btn');
+  if (addProductBtn) {
     addProductBtn.addEventListener('click', async () => {
-        const editId = document.getElementById('edit-product-id').value;
-        const fileInput = document.getElementById('admin-product-img-file');
-        let imageUrl = document.getElementById('admin-product-img-url').value;
-        const name = document.getElementById('admin-product-name').value.trim();
-        const description = document.getElementById('admin-product-desc').value.trim();
-        const price = parseFloat(document.getElementById('admin-product-price').value);
-        const weight = document.getElementById('admin-product-weight').value.trim();
-        const category = document.getElementById('admin-product-category').value;
-        
-        console.log('Saving product:', { editId, name, price, category });
-        
-        if (!name) { showToast('Введите название товара', 'warning'); return; }
-        if (isNaN(price) || price <= 0) { showToast('Введите корректную цену', 'warning'); return; }
-        
-        const hasNewFile = fileInput && fileInput.files && fileInput.files.length > 0;
-        
-        if (hasNewFile) {
-            const file = fileInput.files[0];
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            if (!allowedTypes.includes(file.type)) { 
-                showToast('Неподдерживаемый формат файла', 'warning'); 
-                return; 
-            }
-            if (file.size > 5 * 1024 * 1024) { 
-                showToast('Файл слишком большой. Максимум 5 MB', 'warning'); 
-                return; 
-            }
-            
-            showToast('Загрузка изображения...', 'info');
-            
-            try { 
-                imageUrl = await uploadImage(file); 
-                if (!imageUrl) {
-                    showToast('Не удалось загрузить изображение', 'error');
-                    return;
-                }
-                console.log('Image uploaded, URL length:', imageUrl.length);
-            } catch(err) { 
-                showToast('Ошибка загрузки: ' + err.message, 'error'); 
-                return; 
-            }
+      const editId = document.getElementById('edit-product-id').value;
+      const fileInput = document.getElementById('admin-product-img-file');
+      let imageUrl = document.getElementById('admin-product-img-url').value;
+      const name = document.getElementById('admin-product-name').value.trim();
+      const description = document.getElementById('admin-product-desc').value.trim();
+      const price = parseFloat(document.getElementById('admin-product-price').value);
+      const weight = document.getElementById('admin-product-weight').value.trim();
+      const category = document.getElementById('admin-product-category').value;
+      
+      if (!name) { showToast('Введите название товара', 'warning'); return; }
+      if (isNaN(price) || price <= 0) { showToast('Введите корректную цену', 'warning'); return; }
+      
+      const hasNewFile = fileInput && fileInput.files && fileInput.files.length > 0;
+      
+      if (hasNewFile) {
+        const file = fileInput.files[0];
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) { 
+            showToast('Неподдерживаемый формат файла', 'warning'); 
+            return; 
+        }
+        if (file.size > 5 * 1024 * 1024) { 
+            showToast('Файл слишком большой. Максимум 5 MB', 'warning'); 
+            return; 
         }
         
-        const product = { 
-            name, 
-            description, 
-            price, 
-            weight, 
-            category, 
-            imageUrl: imageUrl || null,
-            imageBase64: null
-        };
-
-        if (imageUrl) {
-    if (imageUrl.startsWith('data:')) {
-        // Это Base64 изображение
-        product.imageBase64 = imageUrl;
-        console.log('Saving as Base64, length:', imageUrl.length);
-        
-        // Проверяем длину
-        if (imageUrl.length > 500000) {
-            showToast('Изображение слишком большое для сохранения в базе данных', 'warning');
-            return;
-        }
-    } else {
-        // Это обычный URL
-        product.imageUrl = imageUrl;
-        console.log('Saving as URL:', imageUrl);
-    }
-}
-        
-        try {
-            let response;
-            if (editId) { 
-                console.log('Updating product...');
-                response = await apiFetch(`/products/${editId}`, { method: 'PUT', body: JSON.stringify(product) }); 
-                showToast('Товар обновлён!', 'success'); 
-                document.getElementById('edit-product-id').value = ''; 
-                addProductBtn.textContent = 'Добавить товар'; 
-            } else { 
-                console.log('Creating product...');
-                response = await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }); 
-                showToast('Товар добавлен!', 'success'); 
+        try { 
+            imageUrl = await uploadImage(file); 
+            if (!imageUrl) {
+                showToast('Не удалось загрузить изображение', 'error');
+                return;
             }
-            
-            console.log('Save response:', response);
-            
-            // Очищаем форму
-            document.getElementById('admin-product-name').value = '';
-            document.getElementById('admin-product-desc').value = '';
-            document.getElementById('admin-product-price').value = '';
-            document.getElementById('admin-product-weight').value = '';
-            document.getElementById('admin-product-img-file').value = '';
-            document.getElementById('admin-product-img-url').value = '';
-            if (document.getElementById('selected-image-preview')) {
-                document.getElementById('selected-image-preview').style.display = 'none';
-            }
-            
-            loadCatalog();
-            closeModal(document.getElementById('admin-modal'));
         } catch(err) { 
-            console.error('Save error:', err);
-            showToast('Ошибка сохранения: ' + err.message, 'error'); 
+            showToast('Ошибка загрузки: ' + err.message, 'error'); 
+            return; 
         }
+      }
+      
+      const product = { 
+        name, 
+        description, 
+        price, 
+        weight, 
+        category, 
+        imageUrl: null,
+        imageBase64: null
+      };
+      
+      if (imageUrl) {
+          if (imageUrl.startsWith('data:')) {
+              product.imageBase64 = imageUrl;
+          } else {
+              product.imageUrl = imageUrl;
+          }
+      }
+      
+      try {
+        if (editId) { 
+          await apiFetch(`/products/${editId}`, { method: 'PUT', body: JSON.stringify(product) }); 
+          showToast('Товар обновлён!', 'success'); 
+          document.getElementById('edit-product-id').value = ''; 
+          addProductBtn.textContent = 'Добавить товар'; 
+        } else { 
+          await apiFetch('/products', { method: 'POST', body: JSON.stringify(product) }); 
+          showToast('Товар добавлен!', 'success'); 
+        }
+        
+        document.getElementById('admin-product-name').value = '';
+        document.getElementById('admin-product-desc').value = '';
+        document.getElementById('admin-product-price').value = '';
+        document.getElementById('admin-product-weight').value = '';
+        document.getElementById('admin-product-img-file').value = '';
+        document.getElementById('admin-product-img-url').value = '';
+        if (document.getElementById('selected-image-preview')) {
+          document.getElementById('selected-image-preview').style.display = 'none';
+        }
+        
+        loadCatalog();
+        closeModal(document.getElementById('admin-modal'));
+      } catch(err) { 
+        let errorMsg = err.message;
+        errorMsg = errorMsg.replace(/API \d+: /, '');
+        showToast('Ошибка сохранения: ' + errorMsg, 'error'); 
+      }
     });
-}
+  }
   
   const selectImageBtn = document.getElementById('select-image-btn');
   const imageFileInput = document.getElementById('admin-product-img-file');
@@ -1672,7 +1765,7 @@ if (addProductBtn) {
         name: `Индивидуальный торт (${weight} кг)`,
         desc: description.substring(0, 200),
         price: totalPrice,
-        img: 'image/image 14.png',
+        img: 'image/image 13.png',
         weight: `${weight} кг`,
         isCustom: true,
         customData: {
