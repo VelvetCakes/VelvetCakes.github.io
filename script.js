@@ -1436,7 +1436,6 @@ document.addEventListener('DOMContentLoaded', () => {
           ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #888;">Заказов пока нет</p>';
         } else {
           ordersList.innerHTML = orders.map(order => {
-            // Формируем список товаров в заказе
             let itemsHtml = '';
             if (order.orderItems && order.orderItems.length > 0) {
               itemsHtml = '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;"><strong>Состав заказа:</strong><ul style="margin-top: 8px; margin-left: 20px;">';
@@ -1459,7 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <span><strong>Сумма:</strong> ${order.totalAmount} ₽</span>
                   <span><strong>Дата получения:</strong> ${order.desiredDeliveryDate}</span>
                 </div>
-                <div><strong>Способ оплаты:</strong> ${order.paymentMethod || 'Картой при получении'}</div>
+                <div><strong>Способ оплаты:</strong> ${getPaymentMethodName(order.paymentMethod)}</div>
                 ${order.deliveryAddress && order.deliveryAddress !== 'Самовывоз' ? `<div><strong>Адрес доставки:</strong> ${escapeHtml(order.deliveryAddress)}</div>` : '<div><strong>Самовывоз</strong></div>'}
                 ${order.comments ? `<div><strong>Комментарий:</strong> ${escapeHtml(order.comments)}</div>` : ''}
                 ${itemsHtml}
@@ -1498,6 +1497,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     openModal(modal);
 });
+
+function getPaymentMethodName(method) {
+    const methodMap = {
+        'cash': 'Наличными при получении',
+        'card': 'Картой при получении',
+        'online': 'Онлайн-оплата'
+    };
+    return methodMap[method] || method || 'Картой при получении';
+}
 
 function getStatusClass(status) {
     const statusMap = {
