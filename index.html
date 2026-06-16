@@ -321,17 +321,24 @@
 </div>
 </footer>
 <div id="orders-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="orders-title">
-<div class="modal-content">
-<button class="modal-close" aria-label="Закрыть"></button>
-<header class="modal-header">
-<h2 id="orders-title" class="modal-title">Заказы</h2>
-</header>
-<div class="modal-body">
-<div class="orders-list" id="orders-list">
-<p style="text-align: center; padding: 20px;">Нет заказов</p>
-</div>
-</div>
-</div>
+    <div class="modal-content">
+        <button class="modal-close" aria-label="Закрыть"></button>
+        <header class="modal-header">
+            <h2 id="orders-title" class="modal-title">Заказы</h2>
+            <div style="margin-top: 12px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <label style="font-size: 14px; color: #666;">Сортировать по дате получения:</label>
+                <select id="orders-sort" style="padding: 6px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white;">
+                    <option value="newest">Сначала срочные</option>
+                    <option value="oldest">Сначала не срочные</option>
+                </select>
+            </div>
+        </header>
+        <div class="modal-body">
+            <div class="orders-list" id="orders-list">
+                <p style="text-align: center; padding: 20px;">Нет заказов</p>
+            </div>
+        </div>
+    </div>
 </div>
 <div id="admin-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-title">
   <div class="modal-content" style="max-width: 800px;">
