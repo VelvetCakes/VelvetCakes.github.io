@@ -212,15 +212,14 @@ async function loadReviews() {
   } catch(e) { console.error(e); }
 }
 
-// Загрузка популярного товара ("Выбор многих")
 async function loadPopularProducts() {
-    const container = document.getElementById('popular-product-container');
-    const skeleton = document.getElementById('popular-card-skeleton');
+    const container = document.getElementById('popular-products-container');
+    const skeleton = document.getElementById('popular-products-skeleton');
     
     if (!container) return;
     
     try {
-        const response = await fetch(`${API_BASE}/products/popular?limit=1`);
+        const response = await fetch(`${API_BASE}/products/popular?limit=3`);
         const products = await response.json();
         
         if (skeleton) skeleton.style.display = 'none';
@@ -231,66 +230,74 @@ async function loadPopularProducts() {
             return;
         }
         
-        const product = products[0];
         const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
         const isUser = user?.role === 'user';
-        const imgSrc = product.imageBase64 || product.imageUrl || 'image/image 13.png';
         
-        container.innerHTML = `
-            <div class="popular-card" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-desc="${escapeHtml(product.description)}" data-price="${product.price}" data-img="${imgSrc}" data-weight="${escapeHtml(product.weight)}">
-                ${isUser ? `<button class="favorite-btn" data-id="${product.id}">🤍</button>` : ''}
-                <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" loading="lazy" onerror="this.onerror=null; this.src='image/image 13.png';">
-                <div class="popular-badge"></div>
-                <h3>${escapeHtml(product.name)}</h3>
-                <p>${escapeHtml(product.description || 'Нежный десерт, который выбирают чаще всего')}</p>
-                <div class="price">${product.price} ₽</div>
-                <button class="btn add-to-cart-popular">В корзину</button>
-            </div>
-        `;
-        container.style.display = 'block';
+        const medals = ['🥇', '🥈', '🥉'];
+        const labels = ['№1', '№2', '№3'];
         
-        const card = container.querySelector('.popular-card');
-        if (card) {
-            card.addEventListener('click', (e) => {
-                if (e.target.closest('button')) return;
-                window.location.href = `product.html?id=${card.dataset.id}`;
-            });
-        }
+        container.innerHTML = products.map((product, index) => {
+            const imgSrc = product.imageBase64 || product.imageUrl || 'image/image 13.png';
+            return `
+                <div class="popular-card" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-desc="${escapeHtml(product.description)}" data-price="${product.price}" data-img="${imgSrc}" data-weight="${escapeHtml(product.weight)}">
+                    ${isUser ? `<button class="favorite-btn" data-id="${product.id}">🤍</button>` : ''}
+                    <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" loading="lazy" onerror="this.onerror=null; this.src='image/image 13.png';">
+                    <div class="popular-badge">
+                        <span>${medals[index]}</span> ${labels[index]}
+                    </div>
+                    <h3>${escapeHtml(product.name)}</h3>
+                    <p>${escapeHtml(product.description || 'Нежный десерт, который выбирают чаще всего')}</p>
+                    <div class="price">${product.price} ₽</div>
+                    <button class="btn add-to-cart-popular">В корзину</button>
+                </div>
+            `;
+        }).join('');
         
-        const addToCartBtn = container.querySelector('.add-to-cart-popular');
-        if (addToCartBtn) {
-            addToCartBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const card = e.target.closest('.popular-card');
-                addToCart({
-                    id: +card.dataset.id,
-                    name: card.dataset.name,
-                    desc: card.dataset.desc,
-                    price: +card.dataset.price,
-                    img: card.dataset.img,
-                    weight: card.dataset.weight
-                });
-            });
-        }
+        container.style.display = 'grid';
         
-        const favBtn = container.querySelector('.favorite-btn');
-        if (favBtn) {
-            favBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (favBtn.classList.contains('active')) {
-                    showToast('Товар уже в избранном', 'warning');
-                } else {
-                    await addToFavorites(favBtn.dataset.id, favBtn);
-                }
-            });
-        }
+        attachPopularCardListeners(container);
         
     } catch(e) {
-        console.error('Error loading popular product:', e);
+        console.error('Error loading popular products:', e);
         if (skeleton) skeleton.style.display = 'none';
-        container.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Не удалось загрузить популярный товар</p>';
+        container.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Не удалось загрузить популярные товары</p>';
         container.style.display = 'block';
     }
+}
+
+function attachPopularCardListeners(container) {
+    container.querySelectorAll('.popular-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('button')) return;
+            window.location.href = `product.html?id=${card.dataset.id}`;
+        });
+    });
+    
+    container.querySelectorAll('.add-to-cart-popular').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = e.target.closest('.popular-card');
+            addToCart({
+                id: +card.dataset.id,
+                name: card.dataset.name,
+                desc: card.dataset.desc,
+                price: +card.dataset.price,
+                img: card.dataset.img,
+                weight: card.dataset.weight
+            });
+        });
+    });
+    
+    container.querySelectorAll('.popular-card .favorite-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (btn.classList.contains('active')) {
+                showToast('Товар уже в избранном', 'warning');
+            } else {
+                await addToFavorites(btn.dataset.id, btn);
+            }
+        });
+    });
 }
 
 async function loadComponents() {
@@ -334,7 +341,6 @@ async function addToFavorites(productId, btnElement) {
   }
 }
 
-// Система тост-уведомлений
 function showToast(message, type = 'info', title = '') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -503,20 +509,46 @@ function renderReviews() {
     const isMgr = user?.role === 'manager';
     
     el.innerHTML = revs.map(r => {
-        // Создаём звёзды для оценки
         let starsHtml = '';
         const rating = r.rating || 5;
         for (let i = 1; i <= 5; i++) {
             starsHtml += `<span class="rating-star">${i <= rating ? '★' : '☆'}</span>`;
         }
         
+        let productsHtml = '';
+        if (r.order && r.order.orderItems && r.order.orderItems.length > 0) {
+            const items = r.order.orderItems.slice(0, 3);
+            productsHtml = `<div class="review-products">`;
+            items.forEach(item => {
+                const imgSrc = item.product?.imageBase64 || item.product?.imageUrl || item.customCake?.imageUrl || 'image/image 13.png';
+                const name = item.product?.name || item.customCake?.name || 'Индивидуальный торт';
+                productsHtml += `
+                    <div class="review-product-thumb" title="${escapeHtml(name)}">
+                        <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.src='image/image 13.png'">
+                    </div>
+                `;
+            });
+            if (r.order.orderItems.length > 3) {
+                productsHtml += `<div class="review-product-more">+${r.order.orderItems.length - 3}</div>`;
+            }
+            productsHtml += `</div>`;
+        }
+        
         return `
             <div class="review-card" data-id="${r.id}">
                 ${isMgr ? `<button class="delete-review-btn" data-id="${r.id}">×</button>` : ''}
-                <h4>${escapeHtml(r.authorName||'Аноним')}</h4>
-                <div class="rating">${starsHtml}</div>
-                <p style="word-wrap: break-word; white-space: normal; word-break: break-word;">${escapeHtml(r.text)}</p>
-                <small style="color: #999;">${new Date(r.createdAt).toLocaleDateString()}</small>
+                <div class="review-header">
+                    <div class="review-user-info">
+                        <h4>${escapeHtml(r.authorName||'Аноним')}</h4>
+                        <div class="review-rating-stars">${starsHtml}</div>
+                    </div>
+                    <div class="review-products-container">
+                        ${productsHtml}
+                    </div>
+                </div>
+                <p class="review-text">${escapeHtml(r.text)}</p>
+                <small class="review-date">${new Date(r.createdAt).toLocaleDateString()}</small>
+                ${r.order ? `<div class="review-order-link">Заказ #${r.order.id}</div>` : ''}
             </div>
         `;
     }).join('') || '<p style="text-align:center;color:#888">Отзывов пока нет</p>';
@@ -533,12 +565,9 @@ function renderReviews() {
     });
 }
 
-// ========== КОНСТРУКТОР С РАСЧЕТОМ ЦЕНЫ ==========
-
 let fillingCounter = 1;
 let cakeBaseCounter = 1;
 
-// Стоимость компонентов
 const componentPrices = {
     fillings: {
         'Strawberry': 150,
@@ -556,13 +585,11 @@ const componentPrices = {
     }
 };
 
-// Функция для расчета общей стоимости
 function calculateTotalPrice() {
     const weight = parseFloat(document.getElementById('weight')?.value) || 1;
     const basePricePerKg = 950;
     const baseCost = weight * basePricePerKg;
     
-    // Стоимость бисквитов (первый бесплатно)
     let cakeBaseCost = 0;
     const allCakeBases = document.querySelectorAll('select[id^="cake-base-"]');
     let selectedCakeBases = [];
@@ -574,7 +601,6 @@ function calculateTotalPrice() {
         }
     });
     
-    // Первый бисквит бесплатно, остальные платные
     selectedCakeBases.forEach((base, index) => {
         if (index > 0) {
             const price = componentPrices.cakeBases[base] || 200;
@@ -582,7 +608,6 @@ function calculateTotalPrice() {
         }
     });
     
-    // Стоимость начинок (первая бесплатно)
     let fillingsCost = 0;
     const allFillings = document.querySelectorAll('select[id^="filling-"]');
     let selectedFillings = [];
@@ -594,7 +619,6 @@ function calculateTotalPrice() {
         }
     });
     
-    // Первая начинка бесплатно, остальные платные
     selectedFillings.forEach((filling, index) => {
         if (index > 0) {
             const price = componentPrices.fillings[filling] || 150;
@@ -604,7 +628,6 @@ function calculateTotalPrice() {
     
     const total = baseCost + cakeBaseCost + fillingsCost;
     
-    // Обновляем отображение
     const cakeBaseCostEl = document.getElementById('cake-base-cost');
     const fillingsCostEl = document.getElementById('fillings-cost');
     const totalPriceEl = document.getElementById('total-price');
@@ -613,19 +636,6 @@ function calculateTotalPrice() {
     if (fillingsCostEl) fillingsCostEl.textContent = `${Math.round(fillingsCost)} ₽`;
     if (totalPriceEl) totalPriceEl.innerHTML = `${Math.round(total)} ₽`;
     
-    // Показываем информацию о бесплатных компонентах
-    const freeInfo = document.getElementById('free-components-info');
-    if (freeInfo) {
-        freeInfo.innerHTML = `
-            <small style="color: #4caf50;">
-                🎁 Первый бисквит и первая начинка — бесплатно!
-                ${selectedCakeBases.length > 0 ? `Выбрано бисквитов: ${selectedCakeBases.length}` : ''}
-                ${selectedFillings.length > 0 ? ` | Выбрано начинок: ${selectedFillings.length}` : ''}
-            </small>
-        `;
-    }
-    
-    // Сохраняем состояние для валидации
     window.constructorState = {
         hasFilling: selectedFillings.length > 0,
         hasCakeBase: selectedCakeBases.length > 0,
@@ -982,20 +992,35 @@ let currentCartTotal = 0;
 function setupCheckout() {
     const deliveryType = document.getElementById('delivery-type');
     const addressGroup = document.getElementById('address-group');
+    const paymentMethod = document.getElementById('payment-method');
     
     if (deliveryType) {
         deliveryType.addEventListener('change', () => {
             if (addressGroup) {
                 addressGroup.style.display = deliveryType.value === 'delivery' ? 'block' : 'none';
             }
+            
+            if (paymentMethod) {
+                if (deliveryType.value === 'delivery') {
+                    paymentMethod.value = 'online';
+                    paymentMethod.disabled = true;
+                    Array.from(paymentMethod.options).forEach(opt => {
+                        if (opt.value === 'cash') {
+                            opt.style.display = 'none';
+                        } else {
+                            opt.style.display = 'block';
+                        }
+                    });
+                } else {
+                    paymentMethod.disabled = false;
+                    Array.from(paymentMethod.options).forEach(opt => {
+                        opt.style.display = 'block';
+                    });
+                }
+            }
+            
             updateCheckoutTotal();
         });
-    }
-    
-    // Расчёт доставки при вводе адреса
-    const addressInput = document.getElementById('delivery-address');
-    if (addressInput) {
-        addressInput.addEventListener('input', calculateDeliveryEstimate);
     }
     
     const form = document.getElementById('checkout-form');
@@ -1020,53 +1045,15 @@ function updateCheckoutTotal() {
     if (!deliveryType) return;
     
     const subtotal = currentCartTotal;
-    const deliveryFee = deliveryType.value === 'delivery' ? 250 : 0;
-    const total = deliveryType.value === 'pickup' ? subtotal * 0.85 : subtotal + deliveryFee;
+    const total = deliveryType.value === 'pickup' ? subtotal * 0.85 : subtotal;
     
     const subtotalEl = document.getElementById('checkout-subtotal');
     const deliveryFeeItem = document.getElementById('delivery-fee-item');
     const totalEl = document.getElementById('checkout-total');
     
     if (subtotalEl) subtotalEl.textContent = `${Math.round(subtotal)} ₽`;
-    if (deliveryFeeItem) deliveryFeeItem.style.display = deliveryType.value === 'delivery' ? 'block' : 'none';
+    if (deliveryFeeItem) deliveryFeeItem.style.display = 'none';
     if (totalEl) totalEl.textContent = `${Math.round(total)} ₽`;
-}
-
-async function calculateDeliveryEstimate() {
-    const deliveryType = document.getElementById('delivery-type').value;
-    const address = document.getElementById('delivery-address')?.value || '';
-    const estimateEl = document.getElementById('delivery-estimate');
-    
-    if (deliveryType !== 'delivery' || !address.trim() || address.trim().length < 3) {
-        if (estimateEl) estimateEl.innerHTML = '';
-        return;
-    }
-    
-    // Рассчитываем общий вес корзины
-    const totalWeight = cart.reduce((sum, item) => {
-        const weight = parseFloat(item.weight) || 1;
-        const quantity = item.quantity || 1;
-        return sum + weight * quantity;
-    }, 0);
-    
-    try {
-        const response = await apiFetch('/orders/delivery/estimate', {
-            method: 'POST',
-            body: JSON.stringify({ address: address, totalWeight: totalWeight })
-        });
-        if (estimateEl) {
-            estimateEl.innerHTML = `
-                <span style="color: var(--primary); font-size: 14px;">
-                    🚚 Примерная стоимость доставки: ${response.fee} ₽
-                </span>
-            `;
-        }
-    } catch(e) {
-        console.error('Delivery estimate error:', e);
-        if (estimateEl) {
-            estimateEl.innerHTML = `<span style="color: #ff4757; font-size: 12px;">❌ Не удалось рассчитать доставку</span>`;
-        }
-    }
 }
 
 async function processOrder() {
@@ -1094,20 +1081,11 @@ async function processOrder() {
         return; 
     }
     
-    // Рассчитываем общий вес заказа
-    const totalWeight = cart.reduce((sum, item) => {
-        const weight = parseFloat(item.weight) || 1;
-        const quantity = item.quantity || 1;
-        return sum + weight * quantity;
-    }, 0);
-    
     let total = currentCartTotal;
     if (deliveryType === 'pickup') total = total * 0.85;
-    else if (deliveryType === 'delivery') total = total + 250;
     
     const orderData = {
         total: Math.round(total),
-        totalWeight: Math.round(totalWeight * 10) / 10,
         deliveryAddress: deliveryAddress || 'Самовывоз',
         comments: comments,
         deliveryDate: deliveryDate,
@@ -1170,42 +1148,6 @@ async function processOrder() {
         }
     } catch(e) {
         showToast('Ошибка: ' + e.message, 'error');
-    }
-}
-
-function loadPaymentData() {
-    const orderDataStr = safeLocalStorage.getItem('pendingOrderData');
-    if (!orderDataStr) return;
-    
-    const orderData = JSON.parse(orderDataStr);
-    const cartItems = JSON.parse(safeLocalStorage.getItem('pendingCart') || '[]');
-    const total = orderData.total;
-    
-    const orderSummary = document.getElementById('payment-order-summary');
-    if (orderSummary) {
-        let itemsHtml = '<div style="margin-bottom: 15px;"><strong>Ваш заказ:</strong></div>';
-        cartItems.forEach(item => {
-            const qty = item.quantity || 1;
-            const itemTotal = (item.price || 0) * qty;
-            itemsHtml += `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>${escapeHtml(item.name)} × ${qty}</span>
-                    <span>${itemTotal.toFixed(0)} ₽</span>
-                </div>
-            `;
-        });
-        itemsHtml += `
-            <div style="display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; font-weight: bold;">
-                <span>Итого:</span>
-                <span style="color: var(--primary);">${total} ₽</span>
-            </div>
-        `;
-        orderSummary.innerHTML = itemsHtml;
-    }
-    
-    const sumInput = document.getElementById('payment-sum');
-    if (sumInput) {
-        sumInput.value = total;
     }
 }
 
@@ -1341,9 +1283,9 @@ async function loadPendingReviews() {
                 <strong>👤 ${escapeHtml(r.authorName || 'Аноним')}</strong>
                 <small style="color: #888; margin-left: 10px;">${new Date(r.createdAt).toLocaleDateString()}</small>
                 <p style="margin: 10px 0; word-wrap: break-word;">${escapeHtml(r.text)}</p>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
                     <button class="approve-review-btn btn" data-id="${r.id}" style="background: #4caf50; padding: 6px 16px; font-size: 14px;">✅ Одобрить</button>
-                    <button class="delete-review-btn" data-id="${r.id}" style="background: #ff4757; padding: 6px 16px; font-size: 14px;">❌ Удалить</button>
+                    <button class="delete-review-btn btn" data-id="${r.id}" style="background: #ff4757; padding: 6px 16px; font-size: 14px;">❌ Удалить</button>
                 </div>
             </div>
         `).join('');
@@ -1404,7 +1346,102 @@ async function loadPendingReviews() {
     }
 }
 
-// Инициализация конструктора
+async function loadComponentSelect() {
+    const token = getAuthToken();
+    if (!token) return;
+    
+    try {
+        const [fillingsRes, basesRes] = await Promise.all([
+            fetch(`${API_BASE}/components/fillings`, { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch(`${API_BASE}/components/cakeBases`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
+        const fillings = await fillingsRes.json();
+        const bases = await basesRes.json();
+        
+        const select = document.getElementById('edit-component-select');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">-- Выберите компонент --</option>';
+        
+        fillings.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.dataset.type = 'filling';
+            opt.dataset.price = f.basePricePerUnit;
+            opt.dataset.free = f.isFirstFree;
+            opt.textContent = `🍯 ${f.name} (${f.basePricePerUnit} ₽)`;
+            select.appendChild(opt);
+        });
+        
+        bases.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.dataset.type = 'cakeBase';
+            opt.dataset.price = b.basePricePerUnit;
+            opt.dataset.free = b.isFirstFree;
+            opt.textContent = `🍰 ${b.name} (${b.basePricePerUnit} ₽)`;
+            select.appendChild(opt);
+        });
+        
+        select.addEventListener('change', () => {
+            const selected = select.options[select.selectedIndex];
+            if (selected && selected.value) {
+                document.getElementById('edit-component-price').value = selected.dataset.price || 0;
+                document.getElementById('edit-component-free').checked = selected.dataset.free === 'true';
+            }
+        });
+        
+    } catch(e) {
+        console.error('Load component select error:', e);
+    }
+}
+
+async function loadOrdersForReview() {
+    const token = getAuthToken();
+    if (!token) return;
+    
+    const select = document.getElementById('review-order-select');
+    if (!select) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/reviews/my-orders`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Ошибка загрузки заказов');
+        const orders = await response.json();
+        
+        safeLocalStorage.setItem('userOrders', JSON.stringify(orders));
+        
+        select.innerHTML = '<option value="">-- Выберите заказ --</option>';
+        
+        if (orders.length === 0) {
+            select.innerHTML = '<option value="">Нет завершённых заказов</option>';
+            return;
+        }
+        
+        orders.forEach(order => {
+            const opt = document.createElement('option');
+            opt.value = order.id;
+            
+            let itemsNames = [];
+            if (order.orderItems) {
+                order.orderItems.forEach(item => {
+                    const name = item.product?.name || item.customCake?.name || 'Индивидуальный торт';
+                    itemsNames.push(name);
+                });
+            }
+            
+            opt.textContent = `Заказ #${order.id} — ${order.totalAmount} ₽ (${itemsNames.join(', ')})`;
+            select.appendChild(opt);
+        });
+        
+    } catch(e) {
+        console.error('Load orders for review error:', e);
+    }
+}
+
 function initConstructor() {
     document.getElementById('add-filling-btn')?.addEventListener('click', addNewFilling);
     document.getElementById('add-cake-base-btn')?.addEventListener('click', addNewCakeBase);
@@ -1425,7 +1462,6 @@ function initConstructor() {
     setTimeout(calculateTotalPrice, 100);
 }
 
-// Инициализация звёздного рейтинга
 function initRatingStars() {
     const stars = document.querySelectorAll('#rating-stars .star');
     const ratingInput = document.getElementById('review-rating');
@@ -1496,6 +1532,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCatalogToggle();
   initConstructor();
   initRatingStars();
+  loadOrdersForReview();
   
   const categorySelect = document.getElementById('category-select');
   if (categorySelect) categorySelect.addEventListener('change', (e) => renderCatalog(e.target.value));
@@ -1563,10 +1600,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('admin-panel-btn')?.addEventListener('click', () => { 
     loadComponentsAdmin();
     loadPendingReviews();
+    loadComponentSelect();
     openModal(document.getElementById('admin-modal')); 
 });
 
-  // ========== ЗАКАЗЫ (ОБНОВЛЁННЫЙ БЛОК) ==========
   document.getElementById('orders-btn')?.addEventListener('click', async () => {
     const modal = document.getElementById('orders-modal');
     const ordersList = document.getElementById('orders-list');
@@ -1720,6 +1757,7 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
     const name = document.getElementById('review-name').value.trim();
     const text = document.getElementById('review-text').value.trim();
     const rating = parseInt(document.getElementById('review-rating')?.value || 5);
+    const orderId = document.getElementById('review-order-select')?.value;
     
     if (!name || !text) {
         showToast('Заполните имя и отзыв', 'warning');
@@ -1729,11 +1767,17 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
     try {
         await apiFetch('/reviews', { 
             method: 'POST', 
-            body: JSON.stringify({ authorName: name, text: text, rating: rating }) 
+            body: JSON.stringify({ 
+                authorName: name, 
+                text: text, 
+                rating: rating,
+                orderId: orderId ? parseInt(orderId) : null
+            }) 
         });
         document.getElementById('review-name').value = '';
         document.getElementById('review-text').value = '';
         document.getElementById('review-rating').value = 5;
+        document.getElementById('review-order-select').value = '';
         document.querySelectorAll('#rating-stars .star').forEach((s, i) => {
             if (i < 5) {
                 s.textContent = '★';
@@ -1867,6 +1911,41 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
     const name = document.getElementById('new-cake-base-name').value.trim();
     if (!name) { showToast('Введите название', 'warning'); return; }
     try { await apiFetch('/components/cakeBases', { method:'POST', body: JSON.stringify({ name }) }); showToast('Бисквит добавлен', 'success'); document.getElementById('new-cake-base-name').value = ''; loadComponentsAdmin(); loadComponents(); } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
+  });
+  
+  document.getElementById('update-component-btn')?.addEventListener('click', async () => {
+    const select = document.getElementById('edit-component-select');
+    const componentId = select.value;
+    const price = parseFloat(document.getElementById('edit-component-price').value);
+    const isFirstFree = document.getElementById('edit-component-free').checked;
+    
+    if (!componentId) {
+        showToast('Выберите компонент', 'warning');
+        return;
+    }
+    
+    if (isNaN(price) || price < 0) {
+        showToast('Введите корректную цену', 'warning');
+        return;
+    }
+    
+    const token = getAuthToken();
+    
+    try {
+        const response = await fetch(`${API_BASE}/components/${componentId}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ basePricePerUnit: price, isFirstFree: isFirstFree })
+        });
+        
+        if (!response.ok) throw new Error('Ошибка обновления');
+        
+        showToast('Компонент обновлён!', 'success');
+        loadComponentSelect();
+        loadComponents();
+    } catch(e) {
+        showToast('Ошибка: ' + e.message, 'error');
+    }
   });
   
   document.getElementById('add-constructor-to-cart')?.addEventListener('click', () => {

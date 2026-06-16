@@ -155,13 +155,24 @@
 <section class="popular-products" id="popular-products">
     <div class="container">
         <h2 class="section-title">Выбор многих</h2>
-        <div class="popular-products-wrapper" id="popular-products-wrapper">
-            <div class="popular-card skeleton" id="popular-card-skeleton">
-                <div class="skeleton-img"></div>
-                <div class="skeleton-text"></div>
-                <div class="skeleton-text short"></div>
+        <div class="popular-products-grid" id="popular-products-container">
+            <div id="popular-products-skeleton">
+                <div class="popular-card skeleton">
+                    <div class="skeleton-img"></div>
+                    <div class="skeleton-text"></div>
+                    <div class="skeleton-text short"></div>
+                </div>
+                <div class="popular-card skeleton">
+                    <div class="skeleton-img"></div>
+                    <div class="skeleton-text"></div>
+                    <div class="skeleton-text short"></div>
+                </div>
+                <div class="popular-card skeleton">
+                    <div class="skeleton-img"></div>
+                    <div class="skeleton-text"></div>
+                    <div class="skeleton-text short"></div>
+                </div>
             </div>
-            <div id="popular-product-container" style="display: none;"></div>
         </div>
     </div>
 </section>
@@ -185,6 +196,14 @@
 <div class="reviews-content">
 <div class="review-form">
     <h3>Оставьте свой отзыв</h3>
+    
+    <div class="form-group" style="padding: 0; border: none; background: transparent;">
+        <label style="font-weight: 500; margin-bottom: 8px;">Выберите заказ для отзыва:</label>
+        <select id="review-order-select" class="review-input" style="margin-bottom: 16px;">
+            <option value="">Выберите заказ</option>
+        </select>
+    </div>
+    
     <input type="text" id="review-name" class="review-input" placeholder="Ваше имя">
     
     <div class="rating-input" style="margin-bottom: 16px;">
@@ -348,6 +367,20 @@
           <input type="text" id="new-cake-base-name" placeholder="Название нового бисквита" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
           <button type="button" id="admin-add-cake-base-btn" class="btn" style="padding:8px 16px;">+ Добавить</button>
         </div>
+
+        <h4 style="margin-top: 24px;">Редактирование стоимости компонентов</h4>
+<div style="margin-bottom: 12px; padding: 12px; border: 1px solid #eee; border-radius: 8px;">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <select id="edit-component-select" style="flex: 2; min-width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">-- Выберите компонент --</option>
+        </select>
+        <input type="number" id="edit-component-price" placeholder="Цена (₽)" style="flex: 1; min-width: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" id="edit-component-free"> Бесплатно
+        </label>
+        <button id="update-component-btn" class="btn" style="padding: 8px 20px;">Обновить</button>
+    </div>
+</div>
 
         <h4 style="margin-top: 24px;">📝 Модерация отзывов</h4>
         <div id="pending-reviews-list" style="max-height: 400px; overflow-y: auto; margin: 15px 0; border: 1px solid #eee; border-radius: 12px; padding: 10px; background: #fafafa;">
