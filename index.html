@@ -325,12 +325,21 @@
         <button class="modal-close" aria-label="Закрыть"></button>
         <header class="modal-header">
             <h2 id="orders-title" class="modal-title">Заказы</h2>
-            <div style="margin-top: 12px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; align-items: center;">
-                <label style="font-size: 14px; color: #666;">Сортировать по дате получения:</label>
-                <select id="orders-sort" style="padding: 6px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white;">
-                    <option value="newest">Сначала срочные</option>
-                    <option value="oldest">Сначала не срочные</option>
-                </select>
+            <div style="margin-top: 12px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 14px; color: #666;">Сортировка по дате:</label>
+                    <select id="orders-sort-date" style="padding: 6px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white;">
+                        <option value="newest">Сначала поздние</option>
+                        <option value="oldest" selected>Сначала ранние</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 14px; color: #666;">Сортировка по статусу:</label>
+                    <select id="orders-sort-status" style="padding: 6px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white;">
+                        <option value="priority">Новые</option>
+                        <option value="reverse">Готовые</option>
+                    </select>
+                </div>
             </div>
         </header>
         <div class="modal-body">

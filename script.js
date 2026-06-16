@@ -1493,11 +1493,13 @@ document.getElementById('orders-btn').addEventListener('click', async function()
             } else {
                 renderOrders(orders);
             }
-            var sortSelect = document.getElementById('orders-sort');
-            if (sortSelect) {
-                sortSelect.onchange = function() {
-                    renderOrders(orders);
-                };
+            var sortDate = document.getElementById('orders-sort-date');
+            var sortStatus = document.getElementById('orders-sort-status');
+            if (sortDate) {
+                sortDate.onchange = function() { renderOrders(orders); };
+            }
+            if (sortStatus) {
+                sortStatus.onchange = function() { renderOrders(orders); };
             }
         } catch(e) {
             console.error('Orders load error:', e);
@@ -1511,13 +1513,37 @@ function renderOrders(orders) {
     var ordersList = document.getElementById('orders-list');
     if (!ordersList) return;
     
-    var sortSelect = document.getElementById('orders-sort');
-    var sortValue = sortSelect ? sortSelect.value : 'newest';
+    var sortDate = document.getElementById('orders-sort-date');
+    var sortStatus = document.getElementById('orders-sort-status');
+    var dateValue = sortDate ? sortDate.value : 'oldest';
+    var statusValue = sortStatus ? sortStatus.value : 'priority';
+    
+    var statusPriority = {
+        'Новый': 1,
+        'В работе': 2,
+        'Готов': 3,
+        'Доставлен': 4,
+        'Ожидает оплаты': 1
+    };
     
     var sortedOrders = orders.slice().sort(function(a, b) {
+        var priorityA = statusPriority[a.status] || 99;
+        var priorityB = statusPriority[b.status] || 99;
+        
+        var statusDiff;
+        if (statusValue === 'priority') {
+            statusDiff = priorityA - priorityB;
+        } else {
+            statusDiff = priorityB - priorityA;
+        }
+        
+        if (statusDiff !== 0) {
+            return statusDiff;
+        }
+        
         var dateA = new Date(a.desiredDeliveryDate);
         var dateB = new Date(b.desiredDeliveryDate);
-        if (sortValue === 'newest') {
+        if (dateValue === 'newest') {
             return dateB - dateA;
         } else {
             return dateA - dateB;
