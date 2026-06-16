@@ -504,9 +504,14 @@ function attachCardEventListeners(grid) {
 function renderReviews() {
     const el = document.getElementById('reviews-list');
     if (!el) return;
-    const revs = JSON.parse(safeLocalStorage.getItem('reviews')||'[]');
-    const user = JSON.parse(safeLocalStorage.getItem('user')||'{}');
+    const revs = JSON.parse(safeLocalStorage.getItem('reviews') || '[]');
+    const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
     const isMgr = user?.role === 'manager';
+    
+    if (!revs || revs.length === 0) {
+        el.innerHTML = '<p style="text-align:center;color:#888;">Отзывов пока нет</p>';
+        return;
+    }
     
     el.innerHTML = revs.map(r => {
         let starsHtml = '';
@@ -520,7 +525,14 @@ function renderReviews() {
             productsHtml = `<div class="review-order-items">`;
             r.order.orderItems.forEach(item => {
                 const name = item.product?.name || item.customCake?.name || 'Индивидуальный торт';
-                const imgSrc = item.product?.imageBase64 || item.product?.imageUrl || item.customCake?.imageUrl || 'image/image 13.png';
+                let imgSrc = 'image/image 13.png';
+                if (item.product?.imageBase64) {
+                    imgSrc = item.product.imageBase64;
+                } else if (item.product?.imageUrl) {
+                    imgSrc = item.product.imageUrl;
+                } else if (item.customCake?.imageUrl) {
+                    imgSrc = item.customCake.imageUrl;
+                }
                 productsHtml += `
                     <div class="review-order-item">
                         <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src='image/image 13.png'">
@@ -536,7 +548,7 @@ function renderReviews() {
                 ${isMgr ? `<button class="delete-review-btn" data-id="${r.id}">×</button>` : ''}
                 <div class="review-header">
                     <div class="review-user-info">
-                        <h4>${escapeHtml(r.authorName||'Аноним')}</h4>
+                        <h4>${escapeHtml(r.authorName || 'Аноним')}</h4>
                         <div class="review-rating-stars">${starsHtml}</div>
                     </div>
                 </div>
@@ -548,15 +560,19 @@ function renderReviews() {
                 </div>
             </div>
         `;
-    }).join('') || '<p style="text-align:center;color:#888">Отзывов пока нет</p>';
+    }).join('');
     
     document.querySelectorAll('.delete-review-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (confirm('Удалить отзыв?')) {
-                await apiFetch(`/reviews/${btn.dataset.id}`, { method: 'DELETE' });
-                loadReviews();
-                showToast('Отзыв удалён', 'success');
+                try {
+                    await apiFetch(`/reviews/${btn.dataset.id}`, { method: 'DELETE' });
+                    loadReviews();
+                    showToast('Отзыв удалён', 'success');
+                } catch(err) {
+                    showToast('Ошибка удаления: ' + err.message, 'error');
+                }
             }
         });
     });
