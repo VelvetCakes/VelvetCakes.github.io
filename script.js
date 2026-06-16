@@ -517,20 +517,17 @@ function renderReviews() {
         
         let productsHtml = '';
         if (r.order && r.order.orderItems && r.order.orderItems.length > 0) {
-            const items = r.order.orderItems.slice(0, 3);
-            productsHtml = `<div class="review-products">`;
-            items.forEach(item => {
-                const imgSrc = item.product?.imageBase64 || item.product?.imageUrl || item.customCake?.imageUrl || 'image/image 13.png';
+            productsHtml = `<div class="review-order-items">`;
+            r.order.orderItems.forEach(item => {
                 const name = item.product?.name || item.customCake?.name || 'Индивидуальный торт';
+                const imgSrc = item.product?.imageBase64 || item.product?.imageUrl || item.customCake?.imageUrl || 'image/image 13.png';
                 productsHtml += `
-                    <div class="review-product-thumb" title="${escapeHtml(name)}">
-                        <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.src='image/image 13.png'">
+                    <div class="review-order-item">
+                        <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src='image/image 13.png'">
+                        <span>${escapeHtml(name)} × ${item.quantity}</span>
                     </div>
                 `;
             });
-            if (r.order.orderItems.length > 3) {
-                productsHtml += `<div class="review-product-more">+${r.order.orderItems.length - 3}</div>`;
-            }
             productsHtml += `</div>`;
         }
         
@@ -542,13 +539,13 @@ function renderReviews() {
                         <h4>${escapeHtml(r.authorName||'Аноним')}</h4>
                         <div class="review-rating-stars">${starsHtml}</div>
                     </div>
-                    <div class="review-products-container">
-                        ${productsHtml}
-                    </div>
                 </div>
+                ${productsHtml}
                 <p class="review-text">${escapeHtml(r.text)}</p>
-                <small class="review-date">${new Date(r.createdAt).toLocaleDateString()}</small>
-                ${r.order ? `<div class="review-order-link">Заказ #${r.order.id}</div>` : ''}
+                <div class="review-footer">
+                    <span class="review-date">${new Date(r.createdAt).toLocaleDateString()}</span>
+                    ${r.order ? `<span class="review-order-link">Заказ #${r.order.id}</span>` : ''}
+                </div>
             </div>
         `;
     }).join('') || '<p style="text-align:center;color:#888">Отзывов пока нет</p>';
@@ -570,20 +567,44 @@ let cakeBaseCounter = 1;
 
 const componentPrices = {
     fillings: {
-        'Strawberry': 150,
-        'Blueberry': 180,
-        'Chocolate': 200,
-        'Caramel': 170,
-        'Raspberry': 160,
-        'Pistachio': 250
+        'Strawberry': 0,
+        'Blueberry': 0,
+        'Chocolate': 0,
+        'Caramel': 0,
+        'Raspberry': 0,
+        'Pistachio': 0
     },
     cakeBases: {
-        'Vanilla sponge': 200,
-        'Chocolate sponge': 220,
-        'Honey sponge': 250,
-        'Coconut sponge': 230
+        'Vanilla sponge': 0,
+        'Chocolate sponge': 0,
+        'Honey sponge': 0,
+        'Coconut sponge': 0
     }
 };
+
+async function loadComponentPrices() {
+    try {
+        const [fillingsRes, basesRes] = await Promise.all([
+            fetch(`${API_BASE}/components/fillings`),
+            fetch(`${API_BASE}/components/cakeBases`)
+        ]);
+        
+        const fillings = await fillingsRes.json();
+        const bases = await basesRes.json();
+        
+        fillings.forEach(f => {
+            componentPrices.fillings[f.name] = f.basePricePerUnit;
+        });
+        
+        bases.forEach(b => {
+            componentPrices.cakeBases[b.name] = b.basePricePerUnit;
+        });
+        
+        calculateTotalPrice();
+    } catch(e) {
+        console.error('Error loading component prices:', e);
+    }
+}
 
 function calculateTotalPrice() {
     const weight = parseFloat(document.getElementById('weight')?.value) || 1;
@@ -1274,21 +1295,34 @@ async function loadPendingReviews() {
         }
         
         if (reviews.length === 0) {
-            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">✅ Нет отзывов на модерации</p>';
+            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Нет отзывов на модерации</p>';
             return;
         }
         
-        container.innerHTML = reviews.map(r => `
-            <div class="pending-review" data-id="${r.id}" style="border: 1px solid #eee; padding: 15px; margin-bottom: 10px; border-radius: 12px; background: #fff;">
-                <strong>👤 ${escapeHtml(r.authorName || 'Аноним')}</strong>
-                <small style="color: #888; margin-left: 10px;">${new Date(r.createdAt).toLocaleDateString()}</small>
-                <p style="margin: 10px 0; word-wrap: break-word;">${escapeHtml(r.text)}</p>
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <button class="approve-review-btn btn" data-id="${r.id}" style="background: #4caf50; padding: 6px 16px; font-size: 14px;">✅ Одобрить</button>
-                    <button class="delete-review-btn btn" data-id="${r.id}" style="background: #ff4757; padding: 6px 16px; font-size: 14px;">❌ Удалить</button>
+        container.innerHTML = reviews.map(r => {
+            let starsHtml = '';
+            const rating = r.rating || 5;
+            for (let i = 1; i <= 5; i++) {
+                starsHtml += `<span class="rating-star">${i <= rating ? '★' : '☆'}</span>`;
+            }
+            
+            return `
+                <div class="pending-review" data-id="${r.id}" style="border: 1px solid #eee; padding: 15px; margin-bottom: 10px; border-radius: 12px; background: #fff;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <strong>👤 ${escapeHtml(r.authorName || 'Аноним')}</strong>
+                            <div style="margin-top: 4px;">${starsHtml}</div>
+                        </div>
+                        <small style="color: #888;">${new Date(r.createdAt).toLocaleDateString()}</small>
+                    </div>
+                    <p style="margin: 10px 0; word-wrap: break-word;">${escapeHtml(r.text)}</p>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="approve-review-btn btn" data-id="${r.id}" style="background: #4caf50; padding: 6px 16px; font-size: 14px;">Одобрить</button>
+                        <button class="reject-review-btn btn" data-id="${r.id}" style="background: #ff4757; padding: 6px 16px; font-size: 14px;">Отклонить</button>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
         document.querySelectorAll('.approve-review-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -1314,21 +1348,22 @@ async function loadPendingReviews() {
             });
         });
         
-        document.querySelectorAll('#pending-reviews-list .delete-review-btn').forEach(btn => {
+        // Новая кнопка - ОТКЛОНИТЬ
+        document.querySelectorAll('.reject-review-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const reviewId = btn.dataset.id;
-                if (confirm('Удалить этот отзыв без публикации?')) {
+                if (confirm('Отклонить этот отзыв? Он будет удалён без публикации.')) {
                     try {
                         const deleteResponse = await fetch(`${API_BASE}/reviews/${reviewId}`, {
                             method: 'DELETE',
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                         if (deleteResponse.ok) {
-                            showToast('Отзыв удалён', 'success');
+                            showToast('Отзыв отклонён и удалён', 'success');
                             loadPendingReviews();
                         } else {
-                            showToast('Ошибка при удалении', 'error');
+                            showToast('Ошибка при отклонении отзыва', 'error');
                         }
                     } catch(e) {
                         showToast('Ошибка: ' + e.message, 'error');
@@ -1341,7 +1376,7 @@ async function loadPendingReviews() {
         console.error('Load pending reviews error:', e);
         const container = document.getElementById('pending-reviews-list');
         if (container) {
-            container.innerHTML = '<p style="color: #ff4757; padding: 20px;">❌ Ошибка загрузки отзывов на модерацию</p>';
+            container.innerHTML = '<p style="color: #ff4757; padding: 20px;">Ошибка загрузки отзывов на модерацию</p>';
         }
     }
 }
@@ -1362,15 +1397,14 @@ async function loadComponentSelect() {
         const select = document.getElementById('edit-component-select');
         if (!select) return;
         
-        select.innerHTML = '<option value="">-- Выберите компонент --</option>';
+        select.innerHTML = '<option value="">Выберите компонент</option>';
         
         fillings.forEach(f => {
             const opt = document.createElement('option');
             opt.value = f.id;
             opt.dataset.type = 'filling';
             opt.dataset.price = f.basePricePerUnit;
-            opt.dataset.free = f.isFirstFree;
-            opt.textContent = `🍯 ${f.name} (${f.basePricePerUnit} ₽)`;
+            opt.textContent = `${f.name} (${f.basePricePerUnit} ₽)`;
             select.appendChild(opt);
         });
         
@@ -1379,8 +1413,7 @@ async function loadComponentSelect() {
             opt.value = b.id;
             opt.dataset.type = 'cakeBase';
             opt.dataset.price = b.basePricePerUnit;
-            opt.dataset.free = b.isFirstFree;
-            opt.textContent = `🍰 ${b.name} (${b.basePricePerUnit} ₽)`;
+            opt.textContent = `${b.name} (${b.basePricePerUnit} ₽)`;
             select.appendChild(opt);
         });
         
@@ -1388,7 +1421,6 @@ async function loadComponentSelect() {
             const selected = select.options[select.selectedIndex];
             if (selected && selected.value) {
                 document.getElementById('edit-component-price').value = selected.dataset.price || 0;
-                document.getElementById('edit-component-free').checked = selected.dataset.free === 'true';
             }
         });
         
@@ -1533,6 +1565,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initConstructor();
   initRatingStars();
   loadOrdersForReview();
+  loadComponentPrices();
   
   const categorySelect = document.getElementById('category-select');
   if (categorySelect) categorySelect.addEventListener('change', (e) => renderCatalog(e.target.value));
@@ -1913,11 +1946,10 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
     try { await apiFetch('/components/cakeBases', { method:'POST', body: JSON.stringify({ name }) }); showToast('Бисквит добавлен', 'success'); document.getElementById('new-cake-base-name').value = ''; loadComponentsAdmin(); loadComponents(); } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
   });
   
-  document.getElementById('update-component-btn')?.addEventListener('click', async () => {
+document.getElementById('update-component-btn')?.addEventListener('click', async () => {
     const select = document.getElementById('edit-component-select');
     const componentId = select.value;
     const price = parseFloat(document.getElementById('edit-component-price').value);
-    const isFirstFree = document.getElementById('edit-component-free').checked;
     
     if (!componentId) {
         showToast('Выберите компонент', 'warning');
@@ -1935,7 +1967,7 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
         const response = await fetch(`${API_BASE}/components/${componentId}`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ basePricePerUnit: price, isFirstFree: isFirstFree })
+            body: JSON.stringify({ basePricePerUnit: price, isFirstFree: true })
         });
         
         if (!response.ok) throw new Error('Ошибка обновления');
@@ -1943,10 +1975,11 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
         showToast('Компонент обновлён!', 'success');
         loadComponentSelect();
         loadComponents();
+        loadComponentPrices();
     } catch(e) {
         showToast('Ошибка: ' + e.message, 'error');
     }
-  });
+});
   
   document.getElementById('add-constructor-to-cart')?.addEventListener('click', () => {
     if (!validateConstructor()) return;
