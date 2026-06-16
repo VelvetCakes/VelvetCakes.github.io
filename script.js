@@ -608,7 +608,7 @@ async function loadComponentPrices() {
 
 function calculateTotalPrice() {
     const weight = parseFloat(document.getElementById('weight')?.value) || 1;
-    const basePricePerKg = 950;
+    const basePricePerKg = 1300;
     const baseCost = weight * basePricePerKg;
     
     let cakeBaseCost = 0;
