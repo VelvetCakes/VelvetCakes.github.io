@@ -1,8 +1,5 @@
 const API_BASE = 'https://velvet-cakes-api.onrender.com/api';
 
-window.openPaymentModal = openPaymentModal;
-window.closePaymentModal = closePaymentModal;
-
 const safeLocalStorage = {
   getItem(key) { try { return localStorage.getItem(key); } catch { return null; } },
   setItem(key, value) { try { localStorage.setItem(key, value); } catch {} },
@@ -15,6 +12,28 @@ function escapeHtml(text) {
 }
 
 function getAuthToken() { return safeLocalStorage.getItem('authToken'); }
+
+function getPaymentMethodName(method) {
+    const methodMap = {
+        'cash': 'Наличными при получении',
+        'card': 'Картой при получении',
+        'online': 'Онлайн-оплата',
+        'Карта при получении': 'Картой при получении',
+        'Наличные при получении': 'Наличными при получении'
+    };
+    return methodMap[method] || method || 'Картой при получении';
+}
+
+function getStatusClass(status) {
+    const statusMap = {
+        'Новый': 'new',
+        'В работе': 'work',
+        'Готов': 'ready',
+        'Доставлен': 'delivered',
+        'Ожидает оплаты': 'new'
+    };
+    return statusMap[status] || 'new';
+}
 
 async function apiFetch(url, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
@@ -33,7 +52,6 @@ async function apiFetch(url, options = {}) {
         errorMessage = await res.text().catch(() => 'Ошибка сервера');
       }
       
-      // Очищаем сообщение от технической информации
       errorMessage = errorMessage
         .replace(/API \d+: /, '')
         .replace(/^"|"$/g, '')
@@ -478,29 +496,41 @@ function attachCardEventListeners(grid) {
 }
 
 function renderReviews() {
-  const el = document.getElementById('reviews-list');
-  if (!el) return;
-  const revs = JSON.parse(safeLocalStorage.getItem('reviews')||'[]');
-  const user = JSON.parse(safeLocalStorage.getItem('user')||'{}');
-  const isMgr = user?.role === 'manager';
-  el.innerHTML = revs.map(r => `
-    <div class="review-card" data-id="${r.id}">
-      ${isMgr ? `<button class="delete-review-btn" data-id="${r.id}">×</button>` : ''}
-      <h4>${escapeHtml(r.authorName||'Аноним')}</h4>
-      <p style="word-wrap: break-word; white-space: normal; word-break: break-word;">${escapeHtml(r.text)}</p>
-    </div>
-  `).join('') || '<p style="text-align:center;color:#888">Отзывов пока нет</p>';
-  
-  document.querySelectorAll('.delete-review-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (confirm('Удалить отзыв?')) {
-        await apiFetch(`/reviews/${btn.dataset.id}`, { method: 'DELETE' });
-        loadReviews();
-        showToast('Отзыв удалён', 'success');
-      }
+    const el = document.getElementById('reviews-list');
+    if (!el) return;
+    const revs = JSON.parse(safeLocalStorage.getItem('reviews')||'[]');
+    const user = JSON.parse(safeLocalStorage.getItem('user')||'{}');
+    const isMgr = user?.role === 'manager';
+    
+    el.innerHTML = revs.map(r => {
+        // Создаём звёзды для оценки
+        let starsHtml = '';
+        const rating = r.rating || 5;
+        for (let i = 1; i <= 5; i++) {
+            starsHtml += `<span class="rating-star">${i <= rating ? '★' : '☆'}</span>`;
+        }
+        
+        return `
+            <div class="review-card" data-id="${r.id}">
+                ${isMgr ? `<button class="delete-review-btn" data-id="${r.id}">×</button>` : ''}
+                <h4>${escapeHtml(r.authorName||'Аноним')}</h4>
+                <div class="rating">${starsHtml}</div>
+                <p style="word-wrap: break-word; white-space: normal; word-break: break-word;">${escapeHtml(r.text)}</p>
+                <small style="color: #999;">${new Date(r.createdAt).toLocaleDateString()}</small>
+            </div>
+        `;
+    }).join('') || '<p style="text-align:center;color:#888">Отзывов пока нет</p>';
+    
+    document.querySelectorAll('.delete-review-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (confirm('Удалить отзыв?')) {
+                await apiFetch(`/reviews/${btn.dataset.id}`, { method: 'DELETE' });
+                loadReviews();
+                showToast('Отзыв удалён', 'success');
+            }
+        });
     });
-  });
 }
 
 // ========== КОНСТРУКТОР С РАСЧЕТОМ ЦЕНЫ ==========
@@ -508,6 +538,7 @@ function renderReviews() {
 let fillingCounter = 1;
 let cakeBaseCounter = 1;
 
+// Стоимость компонентов
 const componentPrices = {
     fillings: {
         'Strawberry': 150,
@@ -525,40 +556,55 @@ const componentPrices = {
     }
 };
 
+// Функция для расчета общей стоимости
 function calculateTotalPrice() {
     const weight = parseFloat(document.getElementById('weight')?.value) || 1;
     const basePricePerKg = 950;
-    
     const baseCost = weight * basePricePerKg;
     
+    // Стоимость бисквитов (первый бесплатно)
     let cakeBaseCost = 0;
     const allCakeBases = document.querySelectorAll('select[id^="cake-base-"]');
-    let hasCakeBase = false;
+    let selectedCakeBases = [];
     
     allCakeBases.forEach(select => {
         const selectedValue = select.value;
         if (selectedValue && selectedValue !== 'Выберите бисквит...' && selectedValue !== '') {
-            hasCakeBase = true;
-            const price = componentPrices.cakeBases[selectedValue] || 200;
+            selectedCakeBases.push(selectedValue);
+        }
+    });
+    
+    // Первый бисквит бесплатно, остальные платные
+    selectedCakeBases.forEach((base, index) => {
+        if (index > 0) {
+            const price = componentPrices.cakeBases[base] || 200;
             cakeBaseCost += price;
         }
     });
     
+    // Стоимость начинок (первая бесплатно)
     let fillingsCost = 0;
     const allFillings = document.querySelectorAll('select[id^="filling-"]');
-    let hasFilling = false;
+    let selectedFillings = [];
     
     allFillings.forEach(select => {
         const selectedValue = select.value;
         if (selectedValue && selectedValue !== 'Выберите начинку...' && selectedValue !== '') {
-            hasFilling = true;
-            const price = componentPrices.fillings[selectedValue] || 150;
+            selectedFillings.push(selectedValue);
+        }
+    });
+    
+    // Первая начинка бесплатно, остальные платные
+    selectedFillings.forEach((filling, index) => {
+        if (index > 0) {
+            const price = componentPrices.fillings[filling] || 150;
             fillingsCost += price;
         }
     });
     
     const total = baseCost + cakeBaseCost + fillingsCost;
     
+    // Обновляем отображение
     const cakeBaseCostEl = document.getElementById('cake-base-cost');
     const fillingsCostEl = document.getElementById('fillings-cost');
     const totalPriceEl = document.getElementById('total-price');
@@ -567,11 +613,24 @@ function calculateTotalPrice() {
     if (fillingsCostEl) fillingsCostEl.textContent = `${Math.round(fillingsCost)} ₽`;
     if (totalPriceEl) totalPriceEl.innerHTML = `${Math.round(total)} ₽`;
     
+    // Показываем информацию о бесплатных компонентах
+    const freeInfo = document.getElementById('free-components-info');
+    if (freeInfo) {
+        freeInfo.innerHTML = `
+            <small style="color: #4caf50;">
+                🎁 Первый бисквит и первая начинка — бесплатно!
+                ${selectedCakeBases.length > 0 ? `Выбрано бисквитов: ${selectedCakeBases.length}` : ''}
+                ${selectedFillings.length > 0 ? ` | Выбрано начинок: ${selectedFillings.length}` : ''}
+            </small>
+        `;
+    }
+    
+    // Сохраняем состояние для валидации
     window.constructorState = {
-        hasFilling,
-        hasCakeBase,
-        total,
-        weight
+        hasFilling: selectedFillings.length > 0,
+        hasCakeBase: selectedCakeBases.length > 0,
+        total: total,
+        weight: weight
     };
     
     return total;
@@ -933,6 +992,12 @@ function setupCheckout() {
         });
     }
     
+    // Расчёт доставки при вводе адреса
+    const addressInput = document.getElementById('delivery-address');
+    if (addressInput) {
+        addressInput.addEventListener('input', calculateDeliveryEstimate);
+    }
+    
     const form = document.getElementById('checkout-form');
     if (form) {
         form.addEventListener('submit', async (e) => { 
@@ -967,6 +1032,43 @@ function updateCheckoutTotal() {
     if (totalEl) totalEl.textContent = `${Math.round(total)} ₽`;
 }
 
+async function calculateDeliveryEstimate() {
+    const deliveryType = document.getElementById('delivery-type').value;
+    const address = document.getElementById('delivery-address')?.value || '';
+    const estimateEl = document.getElementById('delivery-estimate');
+    
+    if (deliveryType !== 'delivery' || !address.trim() || address.trim().length < 3) {
+        if (estimateEl) estimateEl.innerHTML = '';
+        return;
+    }
+    
+    // Рассчитываем общий вес корзины
+    const totalWeight = cart.reduce((sum, item) => {
+        const weight = parseFloat(item.weight) || 1;
+        const quantity = item.quantity || 1;
+        return sum + weight * quantity;
+    }, 0);
+    
+    try {
+        const response = await apiFetch('/orders/delivery/estimate', {
+            method: 'POST',
+            body: JSON.stringify({ address: address, totalWeight: totalWeight })
+        });
+        if (estimateEl) {
+            estimateEl.innerHTML = `
+                <span style="color: var(--primary); font-size: 14px;">
+                    🚚 Примерная стоимость доставки: ${response.fee} ₽
+                </span>
+            `;
+        }
+    } catch(e) {
+        console.error('Delivery estimate error:', e);
+        if (estimateEl) {
+            estimateEl.innerHTML = `<span style="color: #ff4757; font-size: 12px;">❌ Не удалось рассчитать доставку</span>`;
+        }
+    }
+}
+
 async function processOrder() {
     const user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
     if (!user || user.role !== 'user') { 
@@ -992,12 +1094,20 @@ async function processOrder() {
         return; 
     }
     
+    // Рассчитываем общий вес заказа
+    const totalWeight = cart.reduce((sum, item) => {
+        const weight = parseFloat(item.weight) || 1;
+        const quantity = item.quantity || 1;
+        return sum + weight * quantity;
+    }, 0);
+    
     let total = currentCartTotal;
     if (deliveryType === 'pickup') total = total * 0.85;
     else if (deliveryType === 'delivery') total = total + 250;
     
     const orderData = {
         total: Math.round(total),
+        totalWeight: Math.round(totalWeight * 10) / 10,
         deliveryAddress: deliveryAddress || 'Самовывоз',
         comments: comments,
         deliveryDate: deliveryDate,
@@ -1063,23 +1173,6 @@ async function processOrder() {
     }
 }
 
-function openPaymentModal() {
-    const modal = document.getElementById('payment-modal');
-    if (modal) {
-        modal.classList.add('active');
-        loadPaymentData();
-    } else {
-        console.error('Payment modal not found');
-    }
-}
-
-function closePaymentModal() {
-    const modal = document.getElementById('payment-modal');
-    if (modal) {
-        modal.classList.remove('active');
-    }
-}
-
 function loadPaymentData() {
     const orderDataStr = safeLocalStorage.getItem('pendingOrderData');
     if (!orderDataStr) return;
@@ -1120,7 +1213,6 @@ function setupCatalogToggle() {
     const grid = document.getElementById('catalog-grid');
     if (!grid) return;
     
-    // Создаём контейнер для обёртки, если его нет
     let wrapper = grid.parentElement;
     if (!wrapper.classList.contains('catalog-grid-wrapper')) {
         wrapper = document.createElement('div');
@@ -1312,6 +1404,7 @@ async function loadPendingReviews() {
     }
 }
 
+// Инициализация конструктора
 function initConstructor() {
     document.getElementById('add-filling-btn')?.addEventListener('click', addNewFilling);
     document.getElementById('add-cake-base-btn')?.addEventListener('click', addNewCakeBase);
@@ -1330,6 +1423,54 @@ function initConstructor() {
     }
     
     setTimeout(calculateTotalPrice, 100);
+}
+
+// Инициализация звёздного рейтинга
+function initRatingStars() {
+    const stars = document.querySelectorAll('#rating-stars .star');
+    const ratingInput = document.getElementById('review-rating');
+    
+    if (!stars.length || !ratingInput) return;
+    
+    stars.forEach(star => {
+        star.addEventListener('click', () => {
+            const value = parseInt(star.dataset.value);
+            ratingInput.value = value;
+            stars.forEach((s, i) => {
+                if (i < value) {
+                    s.textContent = '★';
+                    s.classList.add('active');
+                } else {
+                    s.textContent = '☆';
+                    s.classList.remove('active');
+                }
+            });
+        });
+        
+        star.addEventListener('mouseenter', () => {
+            const value = parseInt(star.dataset.value);
+            stars.forEach((s, i) => {
+                if (i < value) {
+                    s.textContent = '★';
+                    s.classList.add('hover');
+                } else {
+                    s.textContent = '☆';
+                }
+            });
+        });
+    });
+    
+    document.querySelector('#rating-stars')?.addEventListener('mouseleave', () => {
+        const currentRating = parseInt(ratingInput.value);
+        stars.forEach((s, i) => {
+            if (i < currentRating) {
+                s.textContent = '★';
+            } else {
+                s.textContent = '☆';
+            }
+            s.classList.remove('hover');
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1354,6 +1495,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCheckout();
   setupCatalogToggle();
   initConstructor();
+  initRatingStars();
   
   const categorySelect = document.getElementById('category-select');
   if (categorySelect) categorySelect.addEventListener('change', (e) => renderCatalog(e.target.value));
@@ -1423,14 +1565,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPendingReviews();
     openModal(document.getElementById('admin-modal')); 
 });
-  
- document.getElementById('orders-btn')?.addEventListener('click', async () => {
+
+  // ========== ЗАКАЗЫ (ОБНОВЛЁННЫЙ БЛОК) ==========
+  document.getElementById('orders-btn')?.addEventListener('click', async () => {
     const modal = document.getElementById('orders-modal');
     const ordersList = document.getElementById('orders-list');
     if (ordersList) {
       try {
         const orders = await apiFetch('/orders');
-        console.log('Orders loaded:', orders);
         
         if (!orders || orders.length === 0) {
           ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #888;">Заказов пока нет</p>';
@@ -1473,7 +1615,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }).join('');
         }
         
-        // Добавляем обработчики для изменения статуса
         document.querySelectorAll('.order-status-select').forEach(sel => {
           sel.addEventListener('change', async (e) => {
             try {
@@ -1482,7 +1623,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ status: e.target.value }) 
               });
               showToast('Статус заказа обновлён', 'success');
-              // Обновляем список заказов
               document.getElementById('orders-btn').click();
             } catch(err) {
               showToast('Ошибка обновления статуса: ' + err.message, 'error');
@@ -1496,29 +1636,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     openModal(modal);
-});
-
-function getPaymentMethodName(method) {
-    const methodMap = {
-        'cash': 'Наличными при получении',
-        'card': 'Картой при получении',
-        'online': 'Онлайн-оплата'
-    };
-    return methodMap[method] || method || 'Картой при получении';
-}
-
-function getStatusClass(status) {
-    const statusMap = {
-        'Новый': 'new',
-        'В работе': 'work',
-        'Готов': 'ready',
-        'Доставлен': 'delivered',
-        'Ожидает оплаты': 'new'
-    };
-    return statusMap[status] || 'new';
-}
+  });
   
- document.getElementById('login-submit')?.addEventListener('click', async () => {
+  document.getElementById('login-submit')?.addEventListener('click', async () => {
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
     
@@ -1599,16 +1719,29 @@ document.getElementById('register-submit')?.addEventListener('click', async () =
   document.getElementById('submit-review')?.addEventListener('click', async () => {
     const name = document.getElementById('review-name').value.trim();
     const text = document.getElementById('review-text').value.trim();
-    if (!name||!text) {
-        showToast('Заполните поля', 'warning');
+    const rating = parseInt(document.getElementById('review-rating')?.value || 5);
+    
+    if (!name || !text) {
+        showToast('Заполните имя и отзыв', 'warning');
         return;
     }
+    
     try {
-      await apiFetch('/reviews', { method:'POST', body: JSON.stringify({ authorName: name, text }) });
-      document.getElementById('review-name').value = '';
-      document.getElementById('review-text').value = '';
-      loadReviews();
-      showToast('Отзыв добавлен и отправлен на модерацию', 'success');
+        await apiFetch('/reviews', { 
+            method: 'POST', 
+            body: JSON.stringify({ authorName: name, text: text, rating: rating }) 
+        });
+        document.getElementById('review-name').value = '';
+        document.getElementById('review-text').value = '';
+        document.getElementById('review-rating').value = 5;
+        document.querySelectorAll('#rating-stars .star').forEach((s, i) => {
+            if (i < 5) {
+                s.textContent = '★';
+                s.classList.add('active');
+            }
+        });
+        loadReviews();
+        showToast('Отзыв добавлен и отправлен на модерацию', 'success');
     } catch(e) { 
         let errorMsg = e.message;
         errorMsg = errorMsg.replace(/API \d+: /, '');

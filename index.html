@@ -16,7 +16,6 @@
         if (confirmed === 'true') {
             setTimeout(() => {
                 alert('✅ Email подтверждён! Теперь вы можете войти в аккаунт.');
-                // Убираем параметр из URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }, 500);
         }
@@ -89,7 +88,6 @@
 <label for="filling-0">Начинка</label>
 <div class="form-row">
 <select id="filling-0">
-<!-- Будет заполнено из localStorage -->
 </select>
 <button type="button" class="add-option-btn" id="add-filling-btn" data-type="filling" aria-label="Добавить ещё начинку">
 <svg width="18" height="18" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -186,10 +184,23 @@
 <h2 class="section-title">Отзывы</h2>
 <div class="reviews-content">
 <div class="review-form">
-<h3>Оставьте свой отзыв</h3>
-<input type="text" id="review-name" class="review-input" placeholder="Ваше имя" aria-label="Ваше имя">
-<textarea id="review-text" class="review-input" rows="4" placeholder="Ваш отзыв" aria-label="Ваш отзыв"></textarea>
-<button type="button" id="submit-review" class="btn">Оставить отзыв</button>
+    <h3>Оставьте свой отзыв</h3>
+    <input type="text" id="review-name" class="review-input" placeholder="Ваше имя">
+    
+    <div class="rating-input" style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 8px;">Ваша оценка:</label>
+        <div class="stars" id="rating-stars">
+            <span class="star" data-value="1">☆</span>
+            <span class="star" data-value="2">☆</span>
+            <span class="star" data-value="3">☆</span>
+            <span class="star" data-value="4">☆</span>
+            <span class="star" data-value="5">☆</span>
+        </div>
+        <input type="hidden" id="review-rating" value="5">
+    </div>
+    
+    <textarea id="review-text" class="review-input" rows="4" placeholder="Ваш отзыв"></textarea>
+    <button type="button" id="submit-review" class="btn">Оставить отзыв</button>
 </div>
 <div class="review-scroll-container">
 <div class="review-list" id="reviews-list"></div>
@@ -208,7 +219,7 @@
 </svg>
 </div>
 <h3>Доставка</h3>
-<p>Бесплатная доставка от 1000 ₽.<br>Курьер-такси — по тарифу.</p>
+<p>Оплата доставки по тарифу.</p>
 </div>
 <div class="info-card">
 <div class="icon">
@@ -229,7 +240,7 @@
 </svg>
 </div>
 <h3>Оплата</h3>
-<p>Наличными или картой — при получении.</p>
+<p>Картой или наличными при получении.</p>
 </div>
 </div>
 </div>
@@ -465,13 +476,12 @@
                     <label>Способ получения:</label>
                     <select id="delivery-type" required>
                         <option value="pickup">Самовывоз (скидка 15%)</option>
-                        <option value="delivery">Доставка (+250 ₽)</option>
+                        <option value="delivery">Доставка</option>
                     </select>
                 </div>
                 <div class="form-group" id="address-group" style="display: none;">
                     <label>Адрес доставки:</label>
                     <input type="text" id="delivery-address" placeholder="Улица, дом, квартира">
-                    <small class="delivery-fee-note" style="color: #e85fb9; display: block; margin-top: 8px;">+250 ₽ к стоимости заказа</small>
                 </div>
                 <div class="form-group">
                     <label>Способ оплаты:</label>
@@ -495,7 +505,7 @@
                     </div>
                     <div class="price-item" id="delivery-fee-item" style="display: none;">
                         <label>Доставка:</label>
-                        <div id="checkout-delivery-fee">+250 ₽</div>
+                        <div id="checkout-delivery-fee">По тарифу</div>
                     </div>
                     <div class="price-item">
                         <label>Итого:</label>
@@ -512,9 +522,6 @@
 <div class="shape-5"></div>
 <div class="shape-6"></div>
 <div class="shape-7"></div>
-<div id="payment-modal" class="modal-overlay" role="dialog" aria-modal="true">
-    
-</div>
 <script src="script.js"></script>
 <div id="toast-container" class="toast-container"></div>
 </body>
