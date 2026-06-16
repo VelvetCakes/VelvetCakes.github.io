@@ -221,11 +221,20 @@
     <textarea id="review-text" class="review-input" rows="4" placeholder="Ваш отзыв"></textarea>
     <button type="button" id="submit-review" class="btn">Оставить отзыв</button>
 </div>
-<div class="review-scroll-container">
-<div class="review-list" id="reviews-list"></div>
-</div>
-</div>
-</div>
+ <div class="review-scroll-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-size: 14px; color: #666;">Сортировать по оценке:</label>
+                        <select id="review-sort" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;">
+                            <option value="high">Сначала высокие</option>
+                            <option value="low">Сначала низкие</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="review-list" id="reviews-list"></div>
+            </div>
+        </div>
+    </div>
 </section>
 <section class="delivery" id="delivery">
 <div class="container">

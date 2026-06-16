@@ -451,11 +451,24 @@ function renderReviews() {
     var revs = JSON.parse(safeLocalStorage.getItem('reviews') || '[]');
     var user = JSON.parse(safeLocalStorage.getItem('user') || '{}');
     var isMgr = user && user.role === 'manager';
+    
     if (!revs || revs.length === 0) {
         el.innerHTML = '<p style="text-align:center;color:#888;">Отзывов пока нет</p>';
         return;
     }
-    el.innerHTML = revs.map(function(r) {
+    
+    var sortValue = document.getElementById('review-sort') ? document.getElementById('review-sort').value : 'high';
+    var sortedRevs = revs.slice().sort(function(a, b) {
+        var ratingA = a.rating || 5;
+        var ratingB = b.rating || 5;
+        if (sortValue === 'high') {
+            return ratingB - ratingA;
+        } else {
+            return ratingA - ratingB;
+        }
+    });
+    
+    el.innerHTML = sortedRevs.map(function(r) {
         var starsHtml = '';
         var rating = r.rating || 5;
         for (var i = 1; i <= 5; i++) {
@@ -497,6 +510,7 @@ function renderReviews() {
             '</div>' +
             '</div>';
     }).join('');
+    
     document.querySelectorAll('.delete-review-btn').forEach(function(btn) {
         btn.addEventListener('click', async function(e) {
             e.stopPropagation();
@@ -735,8 +749,9 @@ function setupSearch() {
         var products = await res.json();
         if (!products.length) return;
         suggestionsContainer.innerHTML = products.map(function(p) {
+          var imgSrc = p.imageBase64 || p.imageUrl || 'image/image 13.png';
           return '<div class="search-suggestion" data-id="' + p.id + '">' +
-            '<img src="' + (p.imageUrl || 'image/image 13.png') + '" alt="">' +
+            '<img src="' + escapeHtml(imgSrc) + '" alt="" onerror="this.onerror=null; this.src=\'image/image 13.png\';">' +
             '<div><strong>' + escapeHtml(p.name) + '</strong><div><small>' + p.price + ' ₽</small></div></div>' +
             '</div>';
         }).join('');
@@ -1461,71 +1476,82 @@ document.addEventListener('DOMContentLoaded', function() {
     loadPendingReviews();
     loadComponentSelect();
     openModal(document.getElementById('admin-modal'));
+
+    var reviewSort = document.getElementById('review-sort');
+if (reviewSort) {
+    reviewSort.addEventListener('change', function() {
+        renderReviews();
+    });
+}
   });
-  document.getElementById('orders-btn').addEventListener('click', async function() {
+document.getElementById('orders-btn').addEventListener('click', async function() {
     var modal = document.getElementById('orders-modal');
     var ordersList = document.getElementById('orders-list');
     if (ordersList) {
-      try {
-        var orders = await apiFetch('/orders');
-        if (!orders || orders.length === 0) {
-          ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #888;">Заказов пока нет</p>';
-        } else {
-          ordersList.innerHTML = orders.map(function(order) {
-            var itemsHtml = '';
-            if (order.orderItems && order.orderItems.length > 0) {
-              itemsHtml = '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;"><strong>Состав заказа:</strong><ul style="margin-top: 8px; margin-left: 20px;">';
-              order.orderItems.forEach(function(item) {
-                var itemName = item.product ? item.product.name : (item.customCake ? item.customCake.name : 'Индивидуальный торт');
-                itemsHtml += '<li>' + escapeHtml(itemName) + ' × ' + item.quantity + ' — ' + item.unitPrice + ' ₽</li>';
-              });
-              itemsHtml += '</ul></div>';
+        try {
+            var orders = await apiFetch('/orders');
+            if (!orders || orders.length === 0) {
+                ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #888;">Заказов пока нет</p>';
             } else {
-              itemsHtml = '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; color: #888;">Состав заказа не указан</div>';
+                // СОРТИРОВКА ПО ДАТЕ ПОЛУЧЕНИЯ (от новых к старым)
+                orders.sort(function(a, b) {
+                    return new Date(b.desiredDeliveryDate) - new Date(a.desiredDeliveryDate);
+                });
+                ordersList.innerHTML = orders.map(function(order) {
+                    var itemsHtml = '';
+                    if (order.orderItems && order.orderItems.length > 0) {
+                        itemsHtml = '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;"><strong>Состав заказа:</strong><ul style="margin-top: 8px; margin-left: 20px;">';
+                        order.orderItems.forEach(function(item) {
+                            var itemName = item.product ? item.product.name : (item.customCake ? item.customCake.name : 'Индивидуальный торт');
+                            itemsHtml += '<li>' + escapeHtml(itemName) + ' × ' + item.quantity + ' — ' + item.unitPrice + ' ₽</li>';
+                        });
+                        itemsHtml += '</ul></div>';
+                    } else {
+                        itemsHtml = '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; color: #888;">Состав заказа не указан</div>';
+                    }
+                    return '<div class="card" style="margin-bottom: 16px; padding: 16px; border: 1px solid #eee; border-radius: 12px;">' +
+                        '<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">' +
+                        '<strong style="font-size: 16px;">Заказ #' + order.id + '</strong>' +
+                        '<span class="order-status status-' + getStatusClass(order.status) + '" style="padding: 4px 12px; border-radius: 20px; font-size: 12px;">' + order.status + '</span>' +
+                        '</div>' +
+                        '<div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">' +
+                        '<span><strong>Сумма:</strong> ' + order.totalAmount + ' ₽</span>' +
+                        '<span><strong>Дата получения:</strong> ' + order.desiredDeliveryDate + '</span>' +
+                        '</div>' +
+                        '<div><strong>Способ оплаты:</strong> ' + getPaymentMethodName(order.paymentMethod) + '</div>' +
+                        (order.deliveryAddress && order.deliveryAddress !== 'Самовывоз' ? '<div><strong>Адрес доставки:</strong> ' + escapeHtml(order.deliveryAddress) + '</div>' : '<div><strong>Самовывоз</strong></div>') +
+                        (order.comments ? '<div><strong>Комментарий:</strong> ' + escapeHtml(order.comments) + '</div>' : '') +
+                        itemsHtml +
+                        '<select data-order="' + order.id + '" class="order-status-select" style="margin-top: 12px; padding: 6px 12px; border-radius: 8px; border: 1px solid #ddd; width: 100%; max-width: 200px;">' +
+                        '<option value="Новый" ' + (order.status === 'Новый' ? 'selected' : '') + '>Новый</option>' +
+                        '<option value="В работе" ' + (order.status === 'В работе' ? 'selected' : '') + '>В работе</option>' +
+                        '<option value="Готов" ' + (order.status === 'Готов' ? 'selected' : '') + '>Готов</option>' +
+                        '<option value="Доставлен" ' + (order.status === 'Доставлен' ? 'selected' : '') + '>Доставлен</option>' +
+                        '</select>' +
+                        '</div>';
+                }).join('');
             }
-            return '<div class="card" style="margin-bottom: 16px; padding: 16px; border: 1px solid #eee; border-radius: 12px;">' +
-              '<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">' +
-              '<strong style="font-size: 16px;">Заказ #' + order.id + '</strong>' +
-              '<span class="order-status status-' + getStatusClass(order.status) + '" style="padding: 4px 12px; border-radius: 20px; font-size: 12px;">' + order.status + '</span>' +
-              '</div>' +
-              '<div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">' +
-              '<span><strong>Сумма:</strong> ' + order.totalAmount + ' ₽</span>' +
-              '<span><strong>Дата получения:</strong> ' + order.desiredDeliveryDate + '</span>' +
-              '</div>' +
-              '<div><strong>Способ оплаты:</strong> ' + getPaymentMethodName(order.paymentMethod) + '</div>' +
-              (order.deliveryAddress && order.deliveryAddress !== 'Самовывоз' ? '<div><strong>Адрес доставки:</strong> ' + escapeHtml(order.deliveryAddress) + '</div>' : '<div><strong>Самовывоз</strong></div>') +
-              (order.comments ? '<div><strong>Комментарий:</strong> ' + escapeHtml(order.comments) + '</div>' : '') +
-              itemsHtml +
-              '<select data-order="' + order.id + '" class="order-status-select" style="margin-top: 12px; padding: 6px 12px; border-radius: 8px; border: 1px solid #ddd; width: 100%; max-width: 200px;">' +
-              '<option value="Новый" ' + (order.status === 'Новый' ? 'selected' : '') + '>Новый</option>' +
-              '<option value="В работе" ' + (order.status === 'В работе' ? 'selected' : '') + '>В работе</option>' +
-              '<option value="Готов" ' + (order.status === 'Готов' ? 'selected' : '') + '>Готов</option>' +
-              '<option value="Доставлен" ' + (order.status === 'Доставлен' ? 'selected' : '') + '>Доставлен</option>' +
-              '</select>' +
-              '</div>';
-          }).join('');
+            document.querySelectorAll('.order-status-select').forEach(function(sel) {
+                sel.addEventListener('change', async function(e) {
+                    try {
+                        await apiFetch('/orders/' + sel.dataset.order + '/status', {
+                            method: 'PUT',
+                            body: JSON.stringify({ status: e.target.value })
+                        });
+                        showToast('Статус заказа обновлён', 'success');
+                        document.getElementById('orders-btn').click();
+                    } catch(err) {
+                        showToast('Ошибка обновления статуса: ' + err.message, 'error');
+                    }
+                });
+            });
+        } catch(e) {
+            console.error('Orders load error:', e);
+            ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #ff4757;">Ошибка загрузки заказов</p>';
         }
-        document.querySelectorAll('.order-status-select').forEach(function(sel) {
-          sel.addEventListener('change', async function(e) {
-            try {
-              await apiFetch('/orders/' + sel.dataset.order + '/status', {
-                method: 'PUT',
-                body: JSON.stringify({ status: e.target.value })
-              });
-              showToast('Статус заказа обновлён', 'success');
-              document.getElementById('orders-btn').click();
-            } catch(err) {
-              showToast('Ошибка обновления статуса: ' + err.message, 'error');
-            }
-          });
-        });
-      } catch(e) {
-        console.error('Orders load error:', e);
-        ordersList.innerHTML = '<p style="text-align: center; padding: 40px; color: #ff4757;">Ошибка загрузки заказов</p>';
-      }
     }
     openModal(modal);
-  });
+});
   document.getElementById('login-submit').addEventListener('click', async function() {
     var email = document.getElementById('login-email').value.trim();
     var password = document.getElementById('login-password').value;
