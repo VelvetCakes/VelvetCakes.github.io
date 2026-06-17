@@ -35,8 +35,7 @@ function getStatusClass(status) {
         'Новый': 'new',
         'В работе': 'work',
         'Готов': 'ready',
-        'Доставлен': 'delivered',
-        'Ожидает оплаты': 'new'
+        'Доставлен': 'delivered'
     };
     return statusMap[status] || 'new';
 }
@@ -973,10 +972,12 @@ async function processOrder() {
         showToast('Войдите как клиент', 'warning');
         return;
     }
+    
     var deliveryType = document.getElementById('delivery-type').value;
     var paymentMethod = document.getElementById('payment-method').value;
     var deliveryDate = document.getElementById('checkout-delivery-date').value;
     var comments = document.getElementById('order-comments').value;
+    
     var deliveryAddress = '';
     if (deliveryType === 'delivery') {
         deliveryAddress = document.getElementById('delivery-address').value.trim();
@@ -989,8 +990,10 @@ async function processOrder() {
         showToast('Укажите дату', 'warning');
         return;
     }
+    
     var total = currentCartTotal;
     if (deliveryType === 'pickup') total = total * 0.85;
+    
     var orderData = {
         total: Math.round(total),
         deliveryAddress: deliveryAddress || 'Самовывоз',
@@ -1010,33 +1013,33 @@ async function processOrder() {
             };
         })
     };
+    
     try {
         var response = await apiFetch('/orders', {
             method: 'POST',
             body: JSON.stringify(orderData)
         });
-        var orderId = null;
+        
+        var orderId = response.id || (response.order ? response.order.id : null);
+        
+        if (!orderId) {
+            console.error('Cannot get order ID from response:', response);
+            showToast('Ошибка: не удалось получить ID заказа', 'error');
+            return;
+        }
+        
         if (paymentMethod === 'online') {
-            if (response && response.id) {
-                orderId = response.id;
-            } else if (response && response.order && response.order.id) {
-                orderId = response.order.id;
-            } else {
-                orderId = response.id || (response.order ? response.order.id : null);
-            }
-            if (!orderId) {
-                console.error('Cannot get order ID from response:', response);
-                showToast('Ошибка: не удалось получить ID заказа', 'error');
-                return;
-            }
             safeLocalStorage.setItem('pendingOrderData', JSON.stringify(orderData));
             safeLocalStorage.setItem('pendingCart', JSON.stringify(cart));
             safeLocalStorage.setItem('pendingOrderId', orderId);
+            
             cart = [];
             safeLocalStorage.setItem('cart', '[]');
             updateCartUI();
+            
             closeModal(document.getElementById('checkout-modal'));
             closeModal(document.getElementById('basket-modal'));
+            
             showToast('Заказ создан! Перенаправление на оплату...', 'success');
             window.location.href = 'payment.html?orderId=' + orderId;
         } else {
@@ -1310,7 +1313,7 @@ async function loadOrdersForReview() {
         if (!response.ok) throw new Error('Ошибка загрузки заказов');
         var orders = await response.json();
         safeLocalStorage.setItem('userOrders', JSON.stringify(orders));
-        select.innerHTML = '<option value="">-- Выберите заказ --</option>';
+        select.innerHTML = '<option value="">Выберите заказ</option>';
         if (orders.length === 0) {
             select.innerHTML = '<option value="">Нет завершённых заказов</option>';
             return;

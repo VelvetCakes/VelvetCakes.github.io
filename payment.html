@@ -261,54 +261,54 @@ async function forceUpdateOrderStatus() {
     }
     
     async function loadOrderAndShowPayment() {
-        if (!orderId) {
-            showError('Не указан номер заказа');
-            return;
-        }
-        
-        var token = localStorage.getItem('authToken');
-        if (!token) {
-            showError('Вы не авторизованы. <a href="index.html?auth=login" style="color: var(--primary);">Войдите</a>');
-            return;
-        }
-        
-        try {
-            var response = await fetch(API_BASE + '/orders/my', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            
-            if (!response.ok) throw new Error('Ошибка загрузки заказа');
-            
-            var orders = await response.json();
-            var order = orders.find(function(o) { return o.id == orderId; });
-            
-            if (!order) {
-                showError('Заказ не найден');
-                return;
-            }
-            
-            if (order.status !== 'Ожидает оплаты') {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('payment-content').style.display = 'block';
-                document.getElementById('payment-content').innerHTML = `
-                    <div class="success-message">
-                        Заказ уже обработан или оплачен!<br>
-                        Текущий статус: ${order.status}
-                    </div>
-                    <button class="btn" onclick="window.location.href='profile.html'" style="width: 100%;">Перейти к заказам</button>
-                    <a href="index.html" class="btn btn-back" style="display: block; text-align: center; margin-top: 16px; background: #ccc; color: #333; text-decoration: none; padding: 10px; border-radius: 40px;">← На главную</a>
-                `;
-                return;
-            }
-            
-            var cartItems = JSON.parse(localStorage.getItem('pendingCart') || '[]');
-            displayPaymentForm(order, cartItems);
-            
-        } catch(e) {
-            console.error('Error:', e);
-            showError('Ошибка загрузки информации о заказе');
-        }
+    if (!orderId) {
+        showError('Не указан номер заказа');
+        return;
     }
+    
+    var token = localStorage.getItem('authToken');
+    if (!token) {
+        showError('Вы не авторизованы. <a href="index.html?auth=login" style="color: var(--primary);">Войдите</a>');
+        return;
+    }
+    
+    try {
+        var response = await fetch(API_BASE + '/orders/my', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Ошибка загрузки заказа');
+        
+        var orders = await response.json();
+        var order = orders.find(function(o) { return o.id == orderId; });
+        
+        if (!order) {
+            showError('Заказ не найден');
+            return;
+        }
+        
+        if (order.paidAmount > 0) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('payment-content').style.display = 'block';
+            document.getElementById('payment-content').innerHTML = `
+                <div class="success-message">
+                    Заказ уже оплачен!<br>
+                    Текущий статус: ${order.status}
+                </div>
+                <button class="btn" onclick="window.location.href='profile.html'" style="width: 100%;">Перейти к заказам</button>
+                <a href="index.html" class="btn btn-back" style="display: block; text-align: center; margin-top: 16px; background: #ccc; color: #333; text-decoration: none; padding: 10px; border-radius: 40px;">На главную</a>
+            `;
+            return;
+        }
+        
+        var cartItems = JSON.parse(localStorage.getItem('pendingCart') || '[]');
+        displayPaymentForm(order, cartItems);
+        
+    } catch(e) {
+        console.error('Error:', e);
+        showError('Ошибка загрузки информации о заказе');
+    }
+}
     
     function displayPaymentForm(order, cartItems) {
         document.getElementById('loader').style.display = 'none';
