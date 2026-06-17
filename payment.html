@@ -125,55 +125,112 @@
         });
     }
 
-    async function checkPaymentStatus() {
+async function forceUpdateOrderStatus() {
         if (!orderId) return false;
         
         const token = localStorage.getItem('authToken');
-        if (!token) return false;
+        if (!token) {
+            showToast('Войдите в аккаунт', 'warning');
+            return false;
+        }
         
         try {
-            const response = await fetch(`${API_BASE}/orders/my`, {
+            showToast('Проверка статуса оплаты...', 'info');
+            
+            const checkResponse = await fetch(API_BASE + '/orders/' + orderId + '/check-payment', {
+                method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            const orders = await response.json();
-            const order = orders.find(function(o) { return o.id == orderId; });
+            const checkData = await checkResponse.json();
             
-            if (order) {
-                console.log('Order status:', order.status);
-                console.log('Paid amount:', order.paidAmount);
-                
-                if (order.status !== 'Ожидает оплаты') {
-                    localStorage.removeItem('pendingOrderData');
-                    localStorage.removeItem('pendingCart');
-                    localStorage.removeItem('pendingOrderId');
-                    localStorage.setItem('cart', '[]');
-                    return true;
-                }
+            if (checkData && checkData.isPaid) {
+                showToast('Заказ уже оплачен!', 'success');
+                return true;
             }
-            return false;
+            
+            const forceResponse = await fetch(API_BASE + '/orders/' + orderId + '/force-pay', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const forceData = await forceResponse.json();
+            
+            if (forceResponse.ok) {
+                showToast('Статус заказа обновлён!', 'success');
+                return true;
+            } else {
+                showToast(forceData.error || 'Ошибка обновления статуса', 'error');
+                return false;
+            }
         } catch(e) {
-            console.error('Error checking payment status:', e);
+            console.error('Force update error:', e);
+            showToast('Ошибка: ' + e.message, 'error');
             return false;
         }
     }
+    
+   async function checkPaymentStatus() {
+    if (!orderId) return false;
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) return false;
+    
+    try {
+        const response = await fetch(API_BASE + '/orders/' + orderId + '/payment-status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        
+        if (data && data.isPaid) {
+            localStorage.removeItem('pendingOrderData');
+            localStorage.removeItem('pendingCart');
+            localStorage.removeItem('pendingOrderId');
+            localStorage.setItem('cart', '[]');
+            return true;
+        }
+        return false;
+    } catch(e) {
+        console.error('Error checking payment status:', e);
+        return false;
+    }
+}
     
     if (status === 'success' || paymentId) {
         document.getElementById('loader').style.display = 'none';
         document.getElementById('payment-content').style.display = 'block';
         document.getElementById('payment-content').innerHTML = `
             <div class="success-message">
-                ✅ Оплата успешно произведена!<br>
+                Оплата успешно произведена!<br>
                 Спасибо за ваш заказ!
             </div>
             <div style="text-align: center; margin: 20px 0;">
-                <div id="status-check-text">⏳ Проверка статуса заказа...</div>
+                <div id="status-check-text">Проверка статуса заказа...</div>
+                <button id="force-update-btn" class="btn" style="background: #ff9800; margin-top: 16px; padding: 8px 24px; font-size: 14px;">
+                    Обновить статус заказа
+                </button>
             </div>
-            <button class="btn" onclick="window.location.href='profile.html'" style="width: 100%;">📦 Перейти к заказам</button>
+            <button class="btn" onclick="window.location.href='profile.html'" style="width: 100%;">Перейти к заказам</button>
             <a href="index.html" class="btn btn-back" style="display: block; text-align: center; margin-top: 16px; background: #ccc; color: #333; text-decoration: none; padding: 10px; border-radius: 40px;">← На главную</a>
         `;
         
+        document.getElementById('force-update-btn').addEventListener('click', async function() {
+            var statusText = document.getElementById('status-check-text');
+            var isUpdated = await forceUpdateOrderStatus();
+            if (isUpdated) {
+                statusText.innerHTML = 'Статус заказа обновлён! Заказ передан в работу.';
+                statusText.style.color = '#4caf50';
+                localStorage.removeItem('pendingOrderData');
+                localStorage.removeItem('pendingCart');
+                localStorage.removeItem('pendingOrderId');
+                localStorage.setItem('cart', '[]');
+                document.getElementById('force-update-btn').style.display = 'none';
+            } else {
+                statusText.innerHTML = 'Статус не обновился. Попробуйте позже или проверьте в личном кабинете.';
+                statusText.style.color = '#ff9800';
+            }
+        });
+        
         var attempts = 0;
-        var maxAttempts = 15;
+        var maxAttempts = 10;
         var statusCheckInterval = setInterval(async function() {
             attempts++;
             var statusText = document.getElementById('status-check-text');
@@ -182,18 +239,19 @@
             if (isPaid) {
                 clearInterval(statusCheckInterval);
                 if (statusText) {
-                    statusText.innerHTML = '✅ Заказ оплачен и передан в работу!';
+                    statusText.innerHTML = 'Заказ оплачен и передан в работу!';
                     statusText.style.color = '#4caf50';
                 }
+                document.getElementById('force-update-btn').style.display = 'none';
             } else if (attempts >= maxAttempts) {
                 clearInterval(statusCheckInterval);
                 if (statusText) {
-                    statusText.innerHTML = '⏳ Оплата обрабатывается. Проверьте статус заказа в личном кабинете.';
+                    statusText.innerHTML = 'Статус заказа не обновился автоматически. Нажмите кнопку "Обновить статус заказа" вручную.';
                     statusText.style.color = '#ff9800';
                 }
             } else {
                 if (statusText) {
-                    statusText.innerHTML = '⏳ Проверка статуса оплаты... (' + attempts + '/' + maxAttempts + ')';
+                    statusText.innerHTML = 'Проверка статуса оплаты... (' + attempts + '/' + maxAttempts + ')';
                 }
             }
         }, 3000);
@@ -204,13 +262,13 @@
     
     async function loadOrderAndShowPayment() {
         if (!orderId) {
-            showError('❌ Не указан номер заказа');
+            showError('Не указан номер заказа');
             return;
         }
         
         var token = localStorage.getItem('authToken');
         if (!token) {
-            showError('❌ Вы не авторизованы. <a href="index.html?auth=login" style="color: var(--primary);">Войдите</a>');
+            showError('Вы не авторизованы. <a href="index.html?auth=login" style="color: var(--primary);">Войдите</a>');
             return;
         }
         
@@ -225,7 +283,7 @@
             var order = orders.find(function(o) { return o.id == orderId; });
             
             if (!order) {
-                showError('❌ Заказ не найден');
+                showError('Заказ не найден');
                 return;
             }
             
@@ -234,10 +292,10 @@
                 document.getElementById('payment-content').style.display = 'block';
                 document.getElementById('payment-content').innerHTML = `
                     <div class="success-message">
-                        ✅ Заказ уже обработан или оплачен!<br>
+                        Заказ уже обработан или оплачен!<br>
                         Текущий статус: ${order.status}
                     </div>
-                    <button class="btn" onclick="window.location.href='profile.html'" style="width: 100%;">📦 Перейти к заказам</button>
+                    <button class="btn" onclick="window.location.href='profile.html'" style="width: 100%;">Перейти к заказам</button>
                     <a href="index.html" class="btn btn-back" style="display: block; text-align: center; margin-top: 16px; background: #ccc; color: #333; text-decoration: none; padding: 10px; border-radius: 40px;">← На главную</a>
                 `;
                 return;
@@ -248,7 +306,7 @@
             
         } catch(e) {
             console.error('Error:', e);
-            showError('❌ Ошибка загрузки информации о заказе');
+            showError('Ошибка загрузки информации о заказе');
         }
     }
     
@@ -311,7 +369,7 @@
         var userEmail = user.Email || user.email || '';
         
         container.innerHTML = `
-            <h1>💳 Оплата заказа</h1>
+            <h1>Оплата заказа</h1>
             <div class="order-summary">
                 <h3>Детали заказа</h3>
                 <div><strong>Номер заказа:</strong> #${order.id}</div>
@@ -352,7 +410,7 @@
                 </form>
             </div>
             
-            <a href="profile.html" class="btn" style="display: block; text-align: center; margin-top: 20px; background: #ccc; color: #333;">📦 Перейти к заказам</a>
+            <a href="profile.html" class="btn" style="display: block; text-align: center; margin-top: 20px; background: #ccc; color: #333;">Перейти к заказам</a>
             <a href="index.html" class="btn" style="display: block; text-align: center; margin-top: 12px; background: #ccc; color: #333;">← На главную</a>
         `;
         
